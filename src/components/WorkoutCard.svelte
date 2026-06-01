@@ -43,10 +43,6 @@
         </div>
       </div>
 
-      <div class="progress-bar">
-        <div class="progress-fill" style={`width: ${progress}%`}></div>
-      </div>
-
       <div class="button-group">
         <button class="btn-adjust" onclick={() => uncompleteSet()} disabled={completedSets === 0}>
           <span class="material-icons">remove</span>
@@ -54,6 +50,9 @@
         <button class="btn-adjust" onclick={() => completeSet()} disabled={completedSets >= workout.sets}>
           <span class="material-icons">add</span>
         </button>
+      </div>
+      <div class="progress-bar">
+        <div class="progress-fill" style={`width: ${progress}%`}></div>
       </div>
     </div>
   </div>
@@ -70,27 +69,31 @@
 
 <style>
   .workout-card {
-    background: linear-gradient(135deg, var(--bg-secondary) 0%, var(--color-primary) 100%);
-    border: 1px solid var(--border-color);
-    border-radius: var(--radius-lg);
-    padding: var(--spacing-md);
-    margin-bottom: var(--spacing-md);
-    transition: all var(--transition-base);
-    overflow: hidden;
-    box-shadow: var(--shadow-sm);
+    background: linear-gradient(135deg, var(--bg-secondary) 0%, var(--bg-dark) 100%);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: calc(var(--radius-lg) - 2px);
+    padding: calc(var(--spacing-sm) + 2px);
+    margin-bottom: calc(var(--spacing-sm) + 2px);
+    transition:
+      transform var(--transition-base),
+      box-shadow var(--transition-base),
+      border-color var(--transition-base);
+    box-shadow: 0 18px 35px rgba(0, 0, 0, 0.12);
     display: flex;
-    gap: var(--spacing-md);
+    gap: var(--spacing-sm);
+    position: relative;
+    min-height: 140px;
   }
 
   .workout-card.completed {
-    border-color: var(--color-success);
-    background: linear-gradient(135deg, rgba(0, 255, 136, 0.1) 0%, rgba(0, 212, 255, 0.05) 100%);
-    box-shadow: 0 0 20px rgba(0, 255, 136, 0.3);
+    border-color: rgba(0, 255, 136, 0.3);
+    background: linear-gradient(135deg, rgba(0, 255, 136, 0.08) 0%, rgba(0, 212, 255, 0.06) 100%);
+    box-shadow: 0 0 24px rgba(0, 255, 136, 0.16);
   }
 
   .workout-card:hover {
-    border-color: var(--color-accent-primary);
-    box-shadow: var(--shadow-glow-cyan);
+    border-color: rgba(66, 255, 255, 0.4);
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.18);
     transform: translateY(-2px);
   }
 
@@ -98,13 +101,14 @@
     flex: 1;
     display: flex;
     flex-direction: column;
-    gap: var(--spacing-sm);
+    gap: var(--spacing-xs);
   }
 
   .card-header {
     display: flex;
     justify-content: space-between;
-    align-items: flex-start;
+    align-items: center;
+    gap: var(--spacing-sm);
   }
 
   .card-title {
@@ -122,23 +126,24 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 32px;
-    height: 32px;
+    width: 30px;
+    height: 30px;
     background: linear-gradient(135deg, var(--color-accent-primary), var(--color-accent-secondary));
     color: var(--bg-dark);
     border-radius: var(--radius-md);
     font-weight: 700;
-    font-size: var(--font-size-sm);
+    font-size: var(--font-size-xs);
     flex-shrink: 0;
   }
 
   .btn-delete {
-    background: transparent;
+    background: rgba(255, 255, 255, 0.05);
     color: var(--color-danger);
-    border: 1px solid var(--color-danger);
-    padding: var(--spacing-sm);
-    width: 36px;
-    height: 36px;
+    border: 1px solid rgba(255, 90, 125, 0.22);
+    padding: 7px;
+    width: 34px;
+    height: 34px;
+    border-radius: var(--radius-sm);
   }
 
   .btn-delete:hover {
@@ -153,8 +158,8 @@
 
   .stats-row {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: var(--spacing-sm);
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: var(--spacing-xs);
   }
 
   .stat {
@@ -162,6 +167,7 @@
     flex-direction: column;
     align-items: center;
     text-align: center;
+    padding: 4px 0;
   }
 
   .stat-label {
@@ -191,31 +197,32 @@
 
   .progress-bar {
     width: 100%;
-    height: 8px;
-    background: var(--bg-tertiary);
-    border-radius: 4px;
+    height: 6px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 999px;
     overflow: hidden;
-    border: 1px solid var(--border-light);
+    border: 1px solid rgba(255, 255, 255, 0.08);
   }
 
   .progress-fill {
     height: 100%;
     background: linear-gradient(90deg, var(--color-accent-primary), var(--color-success));
     transition: width var(--transition-base);
-    box-shadow: 0 0 8px rgba(0, 212, 255, 0.5);
+    box-shadow: inset 0 0 8px rgba(0, 212, 255, 0.25);
   }
 
   .button-group {
-    display: flex;
-    gap: var(--spacing-sm);
+    display: inline-flex;
+    gap: var(--spacing-xs);
+    width: 100%;
   }
 
   .btn-adjust {
     flex: 1;
-    background-color: var(--bg-tertiary);
+    background-color: rgba(255, 255, 255, 0.05);
     color: var(--text-primary);
-    border: 1px solid var(--border-color);
-    padding: var(--spacing-md);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    padding: 10px 0;
     border-radius: var(--radius-md);
     display: flex;
     align-items: center;
@@ -230,24 +237,28 @@
   }
 
   .card-side-buttons {
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translate(-50%, -50%);
     display: flex;
-    flex-direction: column;
-    gap: var(--spacing-sm);
     justify-content: center;
+    gap: var(--spacing-xs);
   }
 
   .btn-move {
-    background: transparent;
+    background: rgba(255, 255, 255, 0.06);
     color: var(--color-accent-secondary);
-    border: 1px solid var(--color-accent-secondary);
-    padding: var(--spacing-md);
+    border: 1px solid rgba(178, 75, 255, 0.22);
+    padding: 8px;
     display: flex;
     align-items: center;
     justify-content: center;
     text-transform: none;
-    width: 44px;
-    height: 44px;
+    width: 38px;
+    height: 38px;
     flex-shrink: 0;
+    border-radius: var(--radius-sm);
   }
 
   .btn-move:hover {
@@ -277,10 +288,6 @@
 
     .card-title h3 {
       font-size: var(--font-size-base);
-    }
-
-    .card-side-buttons {
-      flex-direction: row;
     }
 
     .btn-move {

@@ -27,6 +27,7 @@
   async function addWorkout() {
     if (!workoutName.trim()) return;
 
+    if (workoutSets == null || workoutReps == null) return;
     await db.workouts.add({
       name: workoutName,
       reps: workoutReps,
@@ -90,92 +91,94 @@
     });
   }
 
-  let timerState = "stopped";
+  let routineState = "stopped";
 
-  function handleTimerButton() {
-    if (timerState === "stopped") {
-      timer.start();
-      timerState = "running";
-    } else if (timerState === "running") {
-      timer.pause();
-      timerState = "paused";
+  function startRoutine() {
+    routineState = "running";
+  }
+
+  function pauseRoutine() {
+    if (routineState == "paused") {
+      routineState = "running";
     } else {
-      timer.play();
-      timerState = "running";
+      routineState = "paused";
     }
   }
 
   function stopRoutine() {
-    timer.stop();
-    timerState = "stopped";
+    routineState = "stopped";
   }
 </script>
 
 <NavBar />
 
 <main class="app-container">
-  <div class="controls-panel" class:hidden={timerState === "running"}>
-    <div class="section-header">
-      <h2>Routine for <span class="day-highlight">{selectedDay}</span></h2>
-      <div class="timer-section">
-        <Timer bind:this={timer} />
+  {#if routineState === "stopped"}
+    <div class="controls-panel">
+      <div class="section-header">
+        <h2>Routine for <span class="day-highlight">{selectedDay}</span></h2>
+      </div>
+
+      <div class="form-grid">
+        <div class="form-group">
+          <label for="days">Choose a day</label>
+          <select id="days" bind:value={selectedDay} onchange={() => loadWorkouts()}>
+            <option value="Monday">Monday</option>
+            <option value="Tuesday">Tuesday</option>
+            <option value="Wednesday">Wednesday</option>
+            <option value="Thursday">Thursday</option>
+            <option value="Friday">Friday</option>
+            <option value="Saturday">Saturday</option>
+            <option value="Sunday">Sunday</option>
+            <option value="All">All</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="workout-name">Workout name</label>
+          <input id="workout-name" bind:value={workoutName} placeholder="e.g. Bench Press" />
+        </div>
+
+        <div class="form-group">
+          <label for="reps"># Reps</label>
+          <input id="reps" bind:value={workoutReps} type="number" min="1" max="100" step="1" />
+        </div>
+
+        <div class="form-group">
+          <label for="sets"># Sets</label>
+          <input id="sets" bind:value={workoutSets} type="number" min="1" max="100" step="1" />
+        </div>
+      </div>
+
+      <div class="button-row">
+        <button class="btn-primary" onclick={() => addWorkout()}>
+          <span class="material-icons">add</span>
+          Add Workout
+        </button>
+        <button onclick={startRoutine} class="btn-timer" title="Start/Pause Timer">
+          <span class="material-icons">
+            {routineState === "running" ? "pause" : "play_arrow"}
+          </span>
+          {routineState === "stopped" ? "Start" : routineState === "running" ? "Pause" : "Resume"}
+        </button>
+        <button class="btn-danger secondary" onclick={() => clearList()}>
+          <span class="material-icons">delete_sweep</span>
+          Clear All
+        </button>
       </div>
     </div>
+    <div class="divider"></div>
+  {/if}
 
-    <div class="form-grid">
-      <div class="form-group">
-        <label for="days">Choose a day</label>
-        <select id="days" bind:value={selectedDay} onchange={() => loadWorkouts()}>
-          <option value="Monday">Monday</option>
-          <option value="Tuesday">Tuesday</option>
-          <option value="Wednesday">Wednesday</option>
-          <option value="Thursday">Thursday</option>
-          <option value="Friday">Friday</option>
-          <option value="Saturday">Saturday</option>
-          <option value="Sunday">Sunday</option>
-          <option value="All">All</option>
-        </select>
-      </div>
-
-      <div class="form-group">
-        <label for="workout-name">Workout name</label>
-        <input id="workout-name" bind:value={workoutName} placeholder="e.g., Bench Press" />
-      </div>
-
-      <div class="form-group">
-        <label for="reps">Reps</label>
-        <input id="reps" bind:value={workoutReps} type="number" min="1" max="100" step="1" />
-      </div>
-
-      <div class="form-group">
-        <label for="sets">Sets</label>
-        <input id="sets" bind:value={workoutSets} type="number" min="1" max="100" step="1" />
-      </div>
-    </div>
-
-    <div class="button-row">
-      <button class="btn-primary" onclick={() => addWorkout()}>
-        <span class="material-icons">add</span>
-        Add Workout
-      </button>
-      <button onclick={handleTimerButton} class="btn-timer" title="Start/Pause Timer">
-        <span class="material-icons">
-          {timerState === "running" ? "pause" : "play_arrow"}
-        </span>
-        {timerState === "stopped" ? "Start" : timerState === "running" ? "Pause" : "Resume"}
-      </button>
-      <button class="btn-danger secondary" onclick={() => clearList()}>
-        <span class="material-icons">delete_sweep</span>
-        Clear All
-      </button>
-    </div>
-  </div>
-
-  <div class="divider"></div>
-
-  {#if timerState === "running"}
+  {#if routineState !== "stopped"}
     <div class="running-timer-section">
-      <Timer bind:this={timer} />
+      <Timer timerState={routineState} />
+      <button onclick={pauseRoutine} class="btn-pause">
+        <span class="material-icons">
+          {routineState === "running" ? "pause" : "play_arrow"}
+        </span>
+      </button>
+
       <button onclick={stopRoutine} class="btn-stop">
         <span class="material-icons">stop</span>
         Stop Routine
@@ -226,10 +229,6 @@
     box-shadow: var(--shadow-md);
   }
 
-  .controls-panel.hidden {
-    display: none;
-  }
-
   .section-header {
     display: flex;
     justify-content: space-between;
@@ -246,14 +245,6 @@
   .day-highlight {
     color: var(--color-accent-primary);
     font-weight: 700;
-  }
-
-  .timer-section {
-    background: rgba(0, 212, 255, 0.05);
-    padding: var(--spacing-md) var(--spacing-lg);
-    border-radius: var(--radius-md);
-    border: 1px solid rgba(0, 212, 255, 0.2);
-    min-width: 120px;
   }
 
   .running-timer-section {
@@ -279,6 +270,18 @@
   .btn-stop:hover {
     transform: translateY(-2px);
     box-shadow: 0 0 25px rgba(255, 0, 110, 0.4);
+  }
+
+  .btn-pause {
+    background: linear-gradient(135deg, var(--color-secondary), var(--color-accent-secondary));
+    color: var(--bg-dark);
+    padding: var(--spacing-md) var(--spacing-lg);
+    min-width: 50px;
+  }
+
+  .btn-pause:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 0 25px rgba(195, 0, 255, 0.4);
   }
 
   .form-grid {
@@ -391,10 +394,6 @@
       flex-direction: column;
       align-items: flex-start;
       margin-bottom: var(--spacing-lg);
-    }
-
-    .timer-section {
-      width: 100%;
     }
 
     .form-grid {

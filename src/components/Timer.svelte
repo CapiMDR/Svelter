@@ -1,7 +1,9 @@
 <script>
   // @ts-nocheck
-  let elapsedTime = 0;
-  let timeString = convertSeconds(elapsedTime);
+  let elapsedTime = $state(0);
+
+  const timeString = $derived(convertSeconds(elapsedTime));
+  let { timerState } = $props();
 
   let interval;
   let paused = false;
@@ -12,27 +14,34 @@
     return String(minu).padStart(2, "0") + ":" + String(sec).padStart(2, "0");
   }
 
-  export function start() {
+  function start() {
     if (interval) return;
+
     interval = setInterval(() => {
-      if (paused) return;
       elapsedTime++;
-      timeString = convertSeconds(elapsedTime);
     }, 1000);
   }
 
-  export function pause() {
-    paused = true;
-  }
-
-  export function play() {
-    paused = false;
-  }
-
-  export function stop() {
+  function pause() {
     clearInterval(interval);
     interval = null;
   }
+
+  function stop() {
+    clearInterval(interval);
+    interval = null;
+    elapsedTime = 0;
+  }
+
+  $effect(() => {
+    if (timerState === "running") {
+      start();
+    } else if (timerState === "paused") {
+      pause();
+    } else if (timerState === "stopped") {
+      stop();
+    }
+  });
 </script>
 
 <div class="timer-display">

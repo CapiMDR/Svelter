@@ -105,7 +105,7 @@
     }
   }
 
-  function stopRoutine() {
+  function endRoutine() {
     routineState = "stopped";
   }
 </script>
@@ -179,7 +179,7 @@
         </span>
       </button>
 
-      <button onclick={stopRoutine} class="btn-stop">
+      <button onclick={endRoutine} class="btn-stop">
         <span class="material-icons">stop</span>
         Stop Routine
       </button>
@@ -197,7 +197,7 @@
     {:else}
       <div class="workouts-container">
         {#each workouts as workout (workout.id)}
-          <WorkoutCard {workout} {deleteWorkout} changePosition={swapWorkouts} />
+          <WorkoutCard {selectedDay} cardState={routineState} {workout} {deleteWorkout} changePosition={swapWorkouts} />
         {/each}
       </div>
     {/if}

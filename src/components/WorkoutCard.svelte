@@ -1,5 +1,8 @@
 <script>
-  let { workout, deleteWorkout, changePosition } = $props();
+  import WorkoutStat from "./WorkoutStat.svelte";
+  import WorkoutProgressStat from "./WorkoutProgressStat.svelte";
+
+  let { selectedDay, cardState, workout, deleteWorkout, changePosition } = $props();
   let completedSets = $state(0);
 
   function completeSet() {
@@ -12,6 +15,12 @@
     completedSets--;
   }
 
+  $effect(() => {
+    if (cardState === "stopped") {
+      completedSets = 0;
+    }
+  });
+
   const progress = $derived((completedSets / workout.sets) * 100);
 </script>
 
@@ -22,49 +31,50 @@
         <span class="position-badge">{workout.position + 1}</span>
         <h3>{workout.name}</h3>
       </div>
-      <button class="btn-delete" onclick={() => deleteWorkout(workout)} title="Delete workout">
-        <span class="material-icons">close</span>
-      </button>
+      {#if cardState === "stopped"}
+        <button class="btn-delete" onclick={() => deleteWorkout(workout)} title="Delete workout">
+          <span class="material-icons">close</span>
+        </button>
+      {/if}
     </div>
 
     <div class="card-body">
       <div class="stats-row">
-        <div class="stat">
-          <span class="stat-label">Reps</span>
-          <span class="stat-value">{workout.reps}</span>
-        </div>
-        <div class="stat">
-          <span class="stat-label">Sets</span>
-          <span class="stat-value">{workout.sets}</span>
-        </div>
-        <div class="stat progress-stat">
-          <span class="stat-label">Completed</span>
-          <span class="stat-value accent">{completedSets}/{workout.sets}</span>
-        </div>
+        <WorkoutStat type={"Reps"} stat={workout.reps} />
+        <WorkoutStat type={"Set"} stat={workout.sets} />
+        {#if cardState === "stopped" && selectedDay == "All"}
+          <WorkoutStat type={"Day"} stat={workout.day} />
+        {/if}
+        {#if cardState !== "stopped"}
+          <WorkoutProgressStat type={"Completed"} completed={completedSets} total={workout.sets} />
+        {/if}
       </div>
-
-      <div class="button-group">
-        <button class="btn-adjust" onclick={() => uncompleteSet()} disabled={completedSets === 0}>
-          <span class="material-icons">remove</span>
-        </button>
-        <button class="btn-adjust" onclick={() => completeSet()} disabled={completedSets >= workout.sets}>
-          <span class="material-icons">add</span>
-        </button>
-      </div>
-      <div class="progress-bar">
-        <div class="progress-fill" style={`width: ${progress}%`}></div>
-      </div>
+      {#if cardState !== "stopped"}
+        <div class="progress-bar">
+          <div class="progress-fill" style={`width: ${progress}%`}></div>
+        </div>
+        <div class="button-group">
+          <button class="btn-adjust" onclick={() => uncompleteSet()} disabled={completedSets === 0}>
+            <span class="material-icons">remove</span>
+          </button>
+          <button class="btn-adjust" onclick={() => completeSet()} disabled={completedSets >= workout.sets}>
+            <span class="material-icons">add</span>
+          </button>
+        </div>
+      {/if}
     </div>
   </div>
 
-  <div class="card-side-buttons">
-    <button class="btn-move" onclick={() => changePosition(workout, -1)} title="Move up">
-      <span class="material-icons">arrow_upward</span>
-    </button>
-    <button class="btn-move" onclick={() => changePosition(workout, 1)} title="Move down">
-      <span class="material-icons">arrow_downward</span>
-    </button>
-  </div>
+  {#if cardState === "stopped" && selectedDay !== "All"}
+    <div class="card-side-buttons">
+      <button class="btn-move" onclick={() => changePosition(workout, -1)} title="Move up">
+        <span class="material-icons">arrow_upward</span>
+      </button>
+      <button class="btn-move" onclick={() => changePosition(workout, 1)} title="Move down">
+        <span class="material-icons">arrow_downward</span>
+      </button>
+    </div>
+  {/if}
 </div>
 
 <style>
@@ -162,39 +172,6 @@
     gap: var(--spacing-xs);
   }
 
-  .stat {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    text-align: center;
-    padding: 4px 0;
-  }
-
-  .stat-label {
-    font-size: var(--font-size-xs);
-    color: var(--text-tertiary);
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    margin-bottom: var(--spacing-xs);
-  }
-
-  .stat-value {
-    font-size: var(--font-size-lg);
-    font-weight: 700;
-    color: var(--text-primary);
-  }
-
-  .stat-value.accent {
-    color: var(--color-accent-primary);
-  }
-
-  .progress-stat {
-    background: rgba(0, 212, 255, 0.05);
-    padding: var(--spacing-sm);
-    border-radius: var(--radius-md);
-    border: 1px solid rgba(0, 212, 255, 0.2);
-  }
-
   .progress-bar {
     width: 100%;
     height: 6px;
@@ -237,12 +214,10 @@
   }
 
   .card-side-buttons {
+    top: 60%;
+    right: 4%;
     position: absolute;
-    top: 100%;
-    left: 50%;
-    transform: translate(-50%, -50%);
     display: flex;
-    justify-content: center;
     gap: var(--spacing-xs);
   }
 
@@ -291,6 +266,11 @@
     }
 
     .btn-move {
+      width: 40px;
+      height: 40px;
+    }
+
+    .btn-delete {
       width: 40px;
       height: 40px;
     }

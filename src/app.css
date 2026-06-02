@@ -9,6 +9,7 @@
   --color-cyan: #00d4ff;
   --color-purple: #b24bff;
   --color-pink: #ff006e;
+  --color-gold: rgb(255, 208, 0);
   --color-orange: #ff8c00;
   --color-green: #00ff88;
 
@@ -194,9 +195,18 @@ button.secondary:hover {
   border-color: var(--color-accent-primary);
 }
 
+button.accept {
+  background-color: rgba(0, 0, 0, 0);
+  border: 1px solid var(--border-color);
+  border-color: var(--color-green);
+  color: var(--color-green);
+}
+
 button.danger {
-  background-color: var(--color-danger);
-  color: white;
+  background-color: rgba(0, 0, 0, 0);
+  border: 1px solid var(--border-color);
+  border-color: var(--color-danger);
+  color: var(--color-danger);
 }
 
 button.danger:hover {

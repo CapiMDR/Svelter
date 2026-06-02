@@ -8,6 +8,13 @@
   let interval;
   let paused = false;
 
+  const TimerState = {
+    STOPPED: "stopped",
+    RUNNING: "running",
+    PAUSED: "paused",
+    COMPLETED: "completed",
+  };
+
   function convertSeconds(s) {
     const minu = Math.floor(s / 60);
     const sec = s % 60;
@@ -34,19 +41,19 @@
   }
 
   $effect(() => {
-    if (timerState === "running") {
+    if (timerState === TimerState.RUNNING) {
       start();
-    } else if (timerState === "paused") {
+    } else if (timerState === TimerState.PAUSED || timerState === TimerState.COMPLETED) {
       pause();
-    } else if (timerState === "stopped") {
+    } else if (timerState === TimerState.STOPPED) {
       stop();
     }
   });
 </script>
 
 <div class="timer-display">
-  <span class="timer-label">Time</span>
-  <span class="timer-value">{timeString}</span>
+  <span class="timer-label">{timerState === TimerState.PAUSED ? "Paused" : "Time"}</span>
+  <span class="timer-value" class:completed={timerState == TimerState.COMPLETED}>{timeString}</span>
 </div>
 
 <style>
@@ -71,6 +78,10 @@
     font-family: "Courier New", monospace;
     color: var(--color-accent-primary);
     letter-spacing: 2px;
+  }
+
+  .timer-value.completed {
+    color: var(--color-gold);
   }
 
   @media (max-width: 640px) {

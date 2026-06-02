@@ -3,6 +3,7 @@
 </script>
 
 <nav class="navbar">
+  <div class="version">v2.0.0</div>
   <div class="navbar-content">
     <div class="navbar-brand">
       <span class="icon">💪</span>
@@ -26,6 +27,20 @@
     z-index: 100;
   }
 
+  .version {
+    position: absolute;
+    top: 6px;
+    right: 10px;
+
+    font-size: 0.65rem;
+    color: var(--text-secondary);
+    opacity: 0.75;
+
+    padding: 2px 6px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+  }
   .navbar-content {
     display: flex;
     justify-content: space-between;

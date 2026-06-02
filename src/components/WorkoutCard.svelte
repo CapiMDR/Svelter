@@ -1,27 +1,44 @@
 <script>
   import WorkoutStat from "./WorkoutStat.svelte";
   import WorkoutProgressStat from "./WorkoutProgressStat.svelte";
+  import ProgressBar from "./ProgressBar.svelte";
 
-  let { selectedDay, cardState, workout, deleteWorkout, changePosition } = $props();
+  let { selectedDay, cardState, workout, deleteWorkout, changePosition, updateWorkoutCompletion, totalWorkouts } = $props();
   let completedSets = $state(0);
+  let createdDate = $state("");
+
+  $effect(() => {
+    createdDate = new Date(workout.createdAt).toLocaleDateString(undefined, {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
+  });
+
+  const CardState = {
+    STOPPED: "stopped",
+    RUNNING: "running",
+    PAUSED: "paused",
+    COMPLETED: "completed",
+  };
 
   function completeSet() {
     if (completedSets >= workout.sets) return;
     completedSets++;
+    if (completedSets >= workout.sets) updateWorkoutCompletion(1);
   }
 
   function uncompleteSet() {
     if (completedSets <= 0) return;
+    if (completedSets >= workout.sets) updateWorkoutCompletion(-1);
     completedSets--;
   }
 
   $effect(() => {
-    if (cardState === "stopped") {
+    if (cardState === CardState.STOPPED) {
       completedSets = 0;
     }
   });
-
-  const progress = $derived((completedSets / workout.sets) * 100);
 </script>
 
 <div class="workout-card" class:completed={completedSets === workout.sets}>
@@ -31,48 +48,56 @@
         <span class="position-badge">{workout.position + 1}</span>
         <h3>{workout.name}</h3>
       </div>
-      {#if cardState === "stopped"}
-        <button class="btn-delete" onclick={() => deleteWorkout(workout)} title="Delete workout">
-          <span class="material-icons">close</span>
-        </button>
-      {/if}
     </div>
 
     <div class="card-body">
-      <div class="stats-row">
+      <div class="stats-row" class:has-unit={workout.unit !== "None"}>
         <WorkoutStat type={"Reps"} stat={workout.reps} />
         <WorkoutStat type={"Set"} stat={workout.sets} />
-        {#if cardState === "stopped" && selectedDay == "All"}
-          <WorkoutStat type={"Day"} stat={workout.day} />
+        {#if workout.unit !== "None"}
+          <WorkoutStat type={workout.unit} stat={workout.unitAmount} />
         {/if}
-        {#if cardState !== "stopped"}
-          <WorkoutProgressStat type={"Completed"} completed={completedSets} total={workout.sets} />
+        {#if cardState !== CardState.STOPPED}
+          <WorkoutProgressStat type={"Done"} completed={completedSets} total={workout.sets} />
         {/if}
       </div>
-      {#if cardState !== "stopped"}
-        <div class="progress-bar">
-          <div class="progress-fill" style={`width: ${progress}%`}></div>
-        </div>
+      {#if cardState !== CardState.STOPPED}
+        <ProgressBar progress={completedSets} total={workout.sets} />
         <div class="button-group">
-          <button class="btn-adjust" onclick={() => uncompleteSet()} disabled={completedSets === 0}>
+          <button class="btn-adjust" onclick={() => uncompleteSet()} disabled={completedSets === 0 || cardState === CardState.PAUSED}>
             <span class="material-icons">remove</span>
           </button>
-          <button class="btn-adjust" onclick={() => completeSet()} disabled={completedSets >= workout.sets}>
+          <button class="btn-adjust" onclick={() => completeSet()} disabled={completedSets >= workout.sets || cardState === CardState.PAUSED}>
             <span class="material-icons">add</span>
           </button>
         </div>
       {/if}
+      <div class="card-footer">
+        <span class="created-date">
+          {"Added: " + createdDate}
+        </span>
+      </div>
     </div>
   </div>
 
-  {#if cardState === "stopped" && selectedDay !== "All"}
-    <div class="card-side-buttons">
-      <button class="btn-move" onclick={() => changePosition(workout, -1)} title="Move up">
-        <span class="material-icons">arrow_upward</span>
+  {#if cardState === CardState.STOPPED}
+    <div class="card-actions">
+      <button class="btn-delete" onclick={() => deleteWorkout(workout)} title="Delete workout">
+        <span class="material-icons">close</span>
       </button>
-      <button class="btn-move" onclick={() => changePosition(workout, 1)} title="Move down">
-        <span class="material-icons">arrow_downward</span>
-      </button>
+
+      {#if selectedDay !== "All"}
+        {#if workout.position > 0}
+          <button class="btn-move" onclick={() => changePosition(workout, -1)} title="Move up">
+            <span class="material-symbols-outlined"> arrow_drop_up </span>
+          </button>
+        {/if}
+        {#if workout.position < totalWorkouts - 1}
+          <button class="btn-move" onclick={() => changePosition(workout, 1)} title="Move down">
+            <span class="material-symbols-outlined"> arrow_drop_down </span>
+          </button>
+        {/if}
+      {/if}
     </div>
   {/if}
 </div>
@@ -93,6 +118,9 @@
     gap: var(--spacing-sm);
     position: relative;
     min-height: 140px;
+    display: flex;
+    gap: var(--spacing-sm);
+    align-items: stretch;
   }
 
   .workout-card.completed {
@@ -109,9 +137,15 @@
 
   .card-content {
     flex: 1;
+    min-width: 0;
+  }
+
+  .card-actions {
     display: flex;
     flex-direction: column;
     gap: var(--spacing-xs);
+    flex-shrink: 0;
+    align-self: stretch;
   }
 
   .card-header {
@@ -154,6 +188,7 @@
     width: 34px;
     height: 34px;
     border-radius: var(--radius-sm);
+    margin-bottom: auto;
   }
 
   .btn-delete:hover {
@@ -172,20 +207,8 @@
     gap: var(--spacing-xs);
   }
 
-  .progress-bar {
-    width: 100%;
-    height: 6px;
-    background: rgba(255, 255, 255, 0.05);
-    border-radius: 999px;
-    overflow: hidden;
-    border: 1px solid rgba(255, 255, 255, 0.08);
-  }
-
-  .progress-fill {
-    height: 100%;
-    background: linear-gradient(90deg, var(--color-accent-primary), var(--color-success));
-    transition: width var(--transition-base);
-    box-shadow: inset 0 0 8px rgba(0, 212, 255, 0.25);
+  .stats-row.has-unit {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 
   .button-group {
@@ -213,14 +236,6 @@
     box-shadow: var(--shadow-glow-cyan);
   }
 
-  .card-side-buttons {
-    top: 60%;
-    right: 4%;
-    position: absolute;
-    display: flex;
-    gap: var(--spacing-xs);
-  }
-
   .btn-move {
     background: rgba(255, 255, 255, 0.06);
     color: var(--color-accent-secondary);
@@ -238,6 +253,17 @@
 
   .btn-move:hover {
     background: rgba(178, 75, 255, 0.1);
+  }
+  .card-footer {
+    margin-top: auto;
+    display: flex;
+    justify-content: flex-start;
+  }
+
+  .created-date {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    opacity: 0.7;
   }
 
   @media (max-width: 640px) {

@@ -1,171 +1,127 @@
 <script>
   // @ts-nocheck
-  import { db } from "../lib/db.js";
+  import { onMount } from "svelte";
+  import { fly, fade } from "svelte/transition";
+
+  import { workoutStore } from "../lib/stores/workoutStore.js";
+  import { modalStore } from "../lib/stores/modalStore.js";
+  import { toastStore } from "../lib/stores/toastStore.js";
+
   import WorkoutCard from "../components/WorkoutCard.svelte";
   import NavBar from "../components/NavBar.svelte";
   import Timer from "../components/Timer.svelte";
   import ProgressBar from "../components/ProgressBar.svelte";
   import NumberInput from "../components/NumberInput.svelte";
   import WorkoutStat from "../components/WorkoutStat.svelte";
-  import { onMount } from "svelte";
-  import { fly, fade } from "svelte/transition";
+  import Modal from "../components/Modal.svelte";
+  import ToastContainer from "../components/ToastContainer.svelte";
 
-  onMount(loadWorkouts);
+  const today = new Intl.DateTimeFormat("en-US", { weekday: "long" }).format(new Date());
+  let viewedDay = today; // Day that is being viewed by the user, defaults to current day
+  let selectedDays = [today];
 
-  const date = new Date();
-  const today = new Intl.DateTimeFormat("en-US", { weekday: "long" }).format(date);
+  onMount(() => {
+    workoutStore.load(viewedDay);
+  });
+
+  // Data states
+  const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday", "All"];
+  const units = ["Kg", "lb", "Seconds", "Minutes", "None"];
+
+  // Form fields for adding a workout
   let workoutName = "";
-  let selectedDay = today;
-
   let workoutReps = 15;
   let workoutSets = 3;
-  let unitAmount = 60;
-  const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday", "All"];
-  const units = ["g", "Kg", "Seconds", "Minutes", "None"];
   let selectedUnit = units[units.length - 1];
-  let showAddWorkoutPanel = false;
+  let unitAmount = 60;
+
+  let showAddWorkoutPanel = false; // Whether the form for adding a workout is open or not
 
   let completedWorkouts = 0;
-  let totalWorkouts = 0;
 
-  let workouts = [];
-  let groupedWorkouts = [];
-  async function loadWorkouts() {
-    if (selectedDay === "All") {
-      workouts = await db.workouts.toArray();
-
-      const dayOrder = {
-        Monday: 0,
-        Tuesday: 1,
-        Wednesday: 2,
-        Thursday: 3,
-        Friday: 4,
-        Saturday: 5,
-        Sunday: 6,
-      };
-
-      workouts.sort((a, b) => {
-        const dayDiff = dayOrder[a.day] - dayOrder[b.day];
-
-        if (dayDiff !== 0) return dayDiff;
-
-        return a.position - b.position;
-      });
-
-      const groups = {
-        Monday: [],
-        Tuesday: [],
-        Wednesday: [],
-        Thursday: [],
-        Friday: [],
-        Saturday: [],
-        Sunday: [],
-      };
-
-      for (const workout of workouts) {
-        groups[workout.day].push(workout);
-      }
-
-      groupedWorkouts = Object.entries(groups);
+  function toggleDaySelection(day) {
+    if (selectedDays.includes(day)) {
+      selectedDays = selectedDays.filter((d) => d !== day);
     } else {
-      workouts = await db.workouts.where("day").equals(selectedDay).toArray();
-      workouts.sort((a, b) => a.position - b.position);
+      selectedDays = [...selectedDays, day];
     }
-
-    totalWorkouts = workouts.length;
   }
 
   async function addWorkout() {
-    if (!workoutName.trim()) return;
-    if (workoutSets == null || workoutReps == null) return;
-
-    const workoutData = {
-      name: workoutName,
-      reps: workoutReps,
-      sets: workoutSets,
-      unit: selectedUnit,
-      unitAmount: unitAmount,
-      createdAt: Date.now(),
-    };
-
-    if (selectedDay === "All") {
-      const actualDays = days.filter((day) => day !== "All");
-
-      await db.transaction("rw", db.workouts, async () => {
-        for (const day of actualDays) {
-          const dayWorkouts = await db.workouts.where("day").equals(day).toArray();
-
-          await db.workouts.add({
-            ...workoutData,
-            day,
-            position: dayWorkouts.length,
-          });
-        }
-      });
-    } else {
-      const dayWorkouts = await db.workouts.where("day").equals(selectedDay).toArray();
-
-      await db.workouts.add({
-        ...workoutData,
-        day: selectedDay,
-        position: dayWorkouts.length,
-      });
-    }
-
-    workoutName = "";
-    showAddWorkoutPanel = false;
-
-    await loadWorkouts();
-  }
-
-  async function deleteWorkout(deletedWorkout) {
-    if (!deletedWorkout) return;
-
-    const deletedWorkoutID = deletedWorkout.id;
-
-    const workoutsToShift = await db.workouts
-      .where("day")
-      .equals(deletedWorkout.day)
-      .filter((w) => w.position > deletedWorkout.position)
-      .toArray();
-
-    totalWorkouts--;
-
-    workoutsToShift.forEach((workout) => {
-      workout.position--;
-    });
-
-    await db.transaction("rw", db.workouts, async () => {
-      await db.workouts.delete(deletedWorkoutID);
-      await db.workouts.bulkPut(workoutsToShift);
-    });
-
-    await loadWorkouts();
-  }
-
-  async function swapWorkouts(movedWorkout, direction) {
-    const oldPosition = movedWorkout.position;
-    const newPosition = movedWorkout.position + direction;
-
-    if (oldPosition < 0 || oldPosition >= workouts.length || newPosition < 0 || newPosition >= workouts.length) {
+    if (!isValidWorkout()) {
+      toastStore.info("Name and day required");
       return;
     }
 
-    const otherWorkout = workouts.find((w) => w.position === newPosition);
-    [workouts[oldPosition], workouts[newPosition]] = [workouts[newPosition], workouts[oldPosition]];
+    await workoutStore.add(
+      {
+        name: workoutName,
+        reps: workoutReps,
+        sets: workoutSets,
+        unit: selectedUnit,
+        unitAmount,
+        createdAt: Date.now(),
+      },
+      selectedDays,
+      viewedDay,
+    );
 
-    workouts = [...workouts];
+    toastStore.success("Workout added");
+    workoutName = "";
+    showAddWorkoutPanel = false;
+  }
+
+  function isValidWorkout() {
+    if (workoutName == "") return false;
+    if (workoutSets == null || workoutReps == null) return false;
+    if (selectedDays.length == 0) return false;
+    return true;
+  }
+
+  async function requestDeleteWorkout(workout) {
+    if (!workout) return;
+    modalStore.show({
+      title: "Deleting " + workout.name,
+      content: `Do you want to delete ${workout.name} from ${workout.day}?`,
+      closeText: "Cancel",
+      acceptText: "Confirm",
+
+      onAccept: async () => {
+        deleteWorkout(workout);
+      },
+
+      onClose: () => {
+        console.log("Deletion cancelled");
+      },
+    });
+  }
+  async function deleteWorkout(workout) {
+    await workoutStore.remove(workout, viewedDay);
+    toastStore.success("Workout deleted");
+  }
+
+  async function swapWorkouts(movedWorkout, direction) {
+    const dayWorkouts = $workoutStore.workouts.filter((w) => w.day === movedWorkout.day);
+
+    const newPosition = movedWorkout.position + direction;
+
+    if (newPosition < 0 || newPosition >= dayWorkouts.length) {
+      return;
+    }
+
+    const otherWorkout = dayWorkouts.find((w) => w.position === newPosition);
+
+    if (!otherWorkout) return;
+
+    const oldPosition = movedWorkout.position;
+
     movedWorkout.position = newPosition;
     otherWorkout.position = oldPosition;
 
-    await db.workouts.update(movedWorkout.id, {
-      position: newPosition,
-    });
-    await db.workouts.update(otherWorkout.id, {
-      position: oldPosition,
-    });
+    await workoutStore.swap(movedWorkout, otherWorkout, viewedDay);
   }
 
+  // State of the entire routine, not just individual workouts
   const RoutineState = {
     STOPPED: "stopped",
     RUNNING: "running",
@@ -189,19 +145,54 @@
   }
 
   function updateWorkoutCompletion(delta) {
-    completedWorkouts = Math.max(0, Math.min(totalWorkouts, completedWorkouts + delta));
-    if (completedWorkouts == totalWorkouts) {
+    completedWorkouts = Math.max(0, Math.min($workoutStore.totalWorkouts, completedWorkouts + delta));
+    if (completedWorkouts == $workoutStore.totalWorkouts) {
       routineState = RoutineState.COMPLETED;
     } else {
       routineState = RoutineState.RUNNING;
     }
   }
 
+  function requestEndRoutine() {
+    modalStore.show({
+      title: "Complete routine",
+      content: `Are you ready to complete the routine?`,
+      closeText: "Cancel",
+      acceptText: "Confirm",
+
+      onAccept: () => {
+        endRoutine();
+      },
+
+      onClose: () => {
+        console.log("Cancelled end routine");
+      },
+    });
+  }
+
   function endRoutine() {
     routineState = RoutineState.STOPPED;
     completedWorkouts = 0;
     scrollToTop();
+    toastStore.success("Routine completed and stored!");
     console.log("Routine ended");
+  }
+
+  function requestCancelRoutine() {
+    modalStore.show({
+      title: "Cancel routine",
+      content: `Do you want to cancel the active routine? Your progress won't be saved.`,
+      closeText: "Cancel",
+      acceptText: "Confirm",
+
+      onAccept: () => {
+        cancelRoutine();
+      },
+
+      onClose: () => {
+        console.log("Cancelled cancel routine");
+      },
+    });
   }
 
   function cancelRoutine() {
@@ -213,8 +204,9 @@
 
   function openAddWorkout(dayChosen) {
     showAddWorkoutPanel = true;
-    selectedDay = dayChosen;
-    loadWorkouts();
+
+    selectedDays = dayChosen === "All" ? days.filter((d) => d !== "All") : [dayChosen];
+
     scrollToTop();
   }
 
@@ -223,6 +215,7 @@
     workoutReps = 15;
     workoutSets = 3;
     unitAmount = 60;
+    selectedDays = [];
     selectedUnit = units[units.length - 1];
     showAddWorkoutPanel = false;
   }
@@ -242,19 +235,21 @@
 </script>
 
 <svelte:window on:scroll={handleScroll} />
+<Modal />
 <NavBar />
+<ToastContainer />
 
 <main class="app-container">
   {#if routineState !== RoutineState.STOPPED}
-    <div class="running-timer-section" class:completed={completedWorkouts == totalWorkouts} transition:fade={{ y: -20, duration: 100 }}>
+    <div class="running-timer-section" class:completed={completedWorkouts == $workoutStore.totalWorkouts} transition:fade={{ y: -20, duration: 100 }}>
       <Timer timerState={routineState} />
 
       <div class="progress-section" transition:fade={{ y: -20, duration: 100 }}>
         <div class="progress-label">
-          {completedWorkouts} / {totalWorkouts} completed
+          {completedWorkouts} / {$workoutStore.totalWorkouts} completed
         </div>
 
-        <ProgressBar progress={completedWorkouts} total={totalWorkouts} />
+        <ProgressBar progress={completedWorkouts} total={$workoutStore.totalWorkouts} />
       </div>
 
       <button
@@ -286,21 +281,21 @@
 
   {#if routineState === RoutineState.STOPPED}
     <div class="controls-panel" transition:fade={{ y: -20, duration: 100 }}>
-      <div class="section-header">
-        <h2>Routine for <span class="day-highlight">{selectedDay}</span></h2>
-      </div>
-
       <div class="form-grid">
-        <div class="form-group">
-          <label for="days">Choose a day</label>
-          <select id="days" bind:value={selectedDay} onchange={() => loadWorkouts()}>
+        <div class="section-header" transition:fade={{ y: -20, duration: 250 }}>
+          <h2>Routine for <span class="day-highlight">{viewedDay}</span></h2>
+        </div>
+
+        <div class="form-group" transition:fade={{ y: -20, duration: 250 }}>
+          <label for="days">View a day</label>
+          <select id="days" bind:value={viewedDay} onchange={() => workoutStore.load(viewedDay)}>
             {#each days as day}
               <option value={day}>{day}</option>
             {/each}
           </select>
         </div>
         {#if !showAddWorkoutPanel}
-          <button onclick={startRoutine} class="btn-timer" title="Start/Pause Timer" transition:fade={{ y: -20, duration: 100 }}>
+          <button onclick={startRoutine} class="btn-timer" disabled={$workoutStore.totalWorkouts <= 0} transition:fade={{ y: -20, duration: 100 }}>
             <span class="material-icons">play_arrow</span>
             Start Routine
           </button>
@@ -310,7 +305,17 @@
             <label for="workout-name">Workout name</label>
             <input id="workout-name" bind:value={workoutName} placeholder="e.g. Bench Press" />
           </div>
-
+          <div class="form-group" transition:fly={{ y: -20, duration: 250 }}>
+            <label for="workout-name">Select days</label>
+          </div>
+          <div class="day-selector" transition:fly={{ y: -20, duration: 250 }}>
+            {#each days.filter((d) => d !== "All") as day}
+              <label>
+                <input type="checkbox" checked={selectedDays.includes(day)} onchange={() => toggleDaySelection(day)} />
+                {day}
+              </label>
+            {/each}
+          </div>
           <div class="form-group" transition:fly={{ y: -20, duration: 250 }}>
             <NumberInput label="# Reps" bind:value={workoutReps} />
           </div>
@@ -344,8 +349,10 @@
             Cancel
           </button>
         </div>
-      {:else if selectedDay === "All"}
-        <div class="day-selection-warning" transition:fade={{ y: -20, duration: 100 }}>Viewing all workouts. Filter by day to reorder them.</div>
+      {:else if viewedDay === "All"}
+        <div class="day-selection-warning" transition:fade={{ y: -20, duration: 100 }}>
+          Viewing all workouts. View a specific day to start its routine.
+        </div>
       {/if}
     </div>
     <div class="divider"></div>
@@ -353,59 +360,52 @@
 
   <div class="workouts-section">
     {#if routineState === RoutineState.STOPPED && showAddWorkoutPanel === false}
-      <button class="btn-create" onclick={() => openAddWorkout(selectedDay)}>
+      <button class="btn-create" onclick={() => openAddWorkout(viewedDay)}>
         <span class="material-icons">add</span>
-        Add workout for {selectedDay}
+        Add workout
       </button>
     {/if}
-    {#if workouts.length === 0}
+    {#if $workoutStore.workouts.length === 0}
       <div class="empty-state" transition:fade={{ y: -20, duration: 100 }}>
         <span class="empty-icon">🏋️</span>
         <h3>No workouts yet</h3>
         <p>Add a workout to get started!</p>
       </div>
-    {:else if selectedDay === "All"}
+    {:else if viewedDay === "All"}
       <div class="workouts-container" transition:fade={{ y: -20, duration: 100 }}>
-        {#each groupedWorkouts as [day, dayWorkouts]}
+        {#each $workoutStore.groupedWorkouts as [day, dayWorkouts]}
           <div class="day-group">
             <WorkoutStat type={"Day"} stat={day} />
 
             {#if dayWorkouts.length > 0}
               {#each dayWorkouts as workout (workout.id)}
                 <WorkoutCard
-                  {selectedDay}
+                  selectedDay={viewedDay}
                   cardState={routineState}
                   {workout}
-                  {deleteWorkout}
+                  deleteWorkout={requestDeleteWorkout}
                   changePosition={swapWorkouts}
                   {updateWorkoutCompletion}
-                  {totalWorkouts}
+                  totalWorkouts={dayWorkouts.length}
                 />
               {/each}
             {:else}
               <div class="empty-day">No workouts scheduled, have a nice break!</div>
-            {/if}
-
-            {#if routineState === RoutineState.STOPPED}
-              <button class="btn-create" onclick={() => openAddWorkout(day)}>
-                <span class="material-icons">add</span>
-                Add workout for {day}
-              </button>
             {/if}
           </div>
         {/each}
       </div>
     {:else}
       <div class="workouts-container" transition:fade={{ y: -20, duration: 100 }}>
-        {#each workouts as workout (workout.id)}
+        {#each $workoutStore.workouts as workout (workout.id)}
           <WorkoutCard
-            {selectedDay}
+            selectedDay={viewedDay}
             cardState={routineState}
             {workout}
-            {deleteWorkout}
+            deleteWorkout={requestDeleteWorkout}
             changePosition={swapWorkouts}
             {updateWorkoutCompletion}
-            {totalWorkouts}
+            totalWorkouts={$workoutStore.totalWorkouts}
           />
         {/each}
       </div>
@@ -414,12 +414,12 @@
 
   {#if routineState !== RoutineState.STOPPED}
     <div class="footer-container" transition:fade={{ y: -20, duration: 100 }}>
-      <button onclick={endRoutine} disabled={completedWorkouts < totalWorkouts} class="btn-stop">
+      <button onclick={requestEndRoutine} disabled={completedWorkouts < $workoutStore.totalWorkouts} class="btn-stop">
         <span class="material-symbols-outlined"> trophy </span>
-        Finish Routine
+        Complete Routine
       </button>
 
-      <button onclick={cancelRoutine} class="button danger">
+      <button onclick={requestCancelRoutine} class="button danger">
         <span class="material-icons">cancel</span>
         Cancel Routine
       </button>
@@ -573,6 +573,11 @@
   .btn-pause.paused:hover {
     transform: translateY(-2px);
     box-shadow: 0 0 25px rgba(0, 255, 242, 0.4);
+  }
+  .day-selector {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
   }
 
   .form-grid {

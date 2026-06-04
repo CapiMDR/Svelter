@@ -4,7 +4,7 @@
   import ProgressBar from "./ProgressBar.svelte";
   import { fade } from "svelte/transition";
 
-  let { selectedDay, cardState, workout, deleteWorkout, changePosition, updateWorkoutCompletion, totalWorkouts } = $props();
+  let { cardState, workout, deleteWorkout, changePosition, updateWorkoutCompletion, totalWorkouts } = $props();
   let completedSets = $state(0);
   let createdDate = $state("");
 
@@ -87,15 +87,13 @@
         <span class="material-icons">close</span>
       </button>
 
-      {#if selectedDay !== "All"}
-        <button class="btn-move" class:hidden={workout.position <= 0} onclick={() => changePosition(workout, -1)} title="Move up">
-          <span class="material-symbols-outlined">arrow_drop_up</span>
-        </button>
+      <button class="btn-move" class:hidden={workout.position <= 0} onclick={() => changePosition(workout, -1)} title="Move up">
+        <span class="material-symbols-outlined">arrow_drop_up</span>
+      </button>
 
-        <button class="btn-move" class:hidden={workout.position >= totalWorkouts - 1} onclick={() => changePosition(workout, 1)} title="Move down">
-          <span class="material-symbols-outlined">arrow_drop_down</span>
-        </button>
-      {/if}
+      <button class="btn-move" class:hidden={workout.position >= totalWorkouts - 1} onclick={() => changePosition(workout, 1)} title="Move down">
+        <span class="material-symbols-outlined">arrow_drop_down</span>
+      </button>
     </div>
   {/if}
 </div>

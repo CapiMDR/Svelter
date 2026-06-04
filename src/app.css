@@ -103,7 +103,6 @@ h5,
 h6 {
   font-weight: 600;
   letter-spacing: -0.5px;
-  margin-bottom: var(--spacing-md);
 }
 
 h1 {

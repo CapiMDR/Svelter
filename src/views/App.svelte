@@ -6,6 +6,7 @@
   import { workoutStore } from "../lib/stores/workoutStore.js";
   import { modalStore } from "../lib/stores/modalStore.js";
   import { toastStore } from "../lib/stores/toastStore.js";
+  import { routineStore, RoutineState } from "../lib/stores/routineStore.js";
 
   import WorkoutCard from "../components/WorkoutCard.svelte";
   import NavBar from "../components/NavBar.svelte";
@@ -18,26 +19,29 @@
 
   const today = new Intl.DateTimeFormat("en-US", { weekday: "long" }).format(new Date());
   let viewedDay = today; // Day that is being viewed by the user, defaults to current day
+  let workoutToEdit = null; // null = adding, object = editing
   let selectedDays = [today];
-
-  onMount(() => {
-    workoutStore.load(viewedDay);
-  });
 
   // Data states
   const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday", "All"];
   const units = ["Kg", "lb", "Seconds", "Minutes", "None"];
 
   // Form fields for adding a workout
-  let workoutName = "";
-  let workoutReps = 15;
-  let workoutSets = 3;
-  let selectedUnit = units[units.length - 1];
-  let unitAmount = 60;
+  const defaultWorkoutForm = {
+    name: "",
+    reps: 15,
+    sets: 3,
+    unit: "None",
+    unitAmount: 60,
+  };
+
+  onMount(() => {
+    workoutStore.load(viewedDay);
+  });
+
+  let workoutForm = { ...defaultWorkoutForm };
 
   let showAddWorkoutPanel = false; // Whether the form for adding a workout is open or not
-
-  let completedWorkouts = 0;
 
   function toggleDaySelection(day) {
     if (selectedDays.includes(day)) {
@@ -47,53 +51,51 @@
     }
   }
 
+  async function handleWorkoutSubmit() {
+    if (workoutToEdit) {
+      editWorkout();
+    } else {
+      addWorkout();
+    }
+    resetFormData();
+  }
+
   async function addWorkout() {
     if (!isValidWorkout()) {
       toastStore.info("Name and day required");
       return;
     }
-
     await workoutStore.add(
-      {
-        name: workoutName,
-        reps: workoutReps,
-        sets: workoutSets,
-        unit: selectedUnit,
-        unitAmount,
-        createdAt: Date.now(),
-      },
+      { name: workoutForm.name, reps: workoutForm.reps, sets: workoutForm.sets, unit: workoutForm.unit, unitAmount: workoutForm.unitAmount },
       selectedDays,
       viewedDay,
     );
-
     toastStore.success("Workout added");
-    workoutName = "";
     showAddWorkoutPanel = false;
   }
 
+  async function editWorkout() {
+    toastStore.success("Workout updated");
+    const newData = {
+      name: workoutForm.name,
+      reps: workoutForm.reps,
+      sets: workoutForm.sets,
+      unit: workoutForm.unit,
+      unitAmount: workoutForm.unitAmount,
+    };
+    await workoutStore.edit(workoutToEdit, newData, viewedDay);
+  }
+
   function isValidWorkout() {
-    if (workoutName == "") return false;
-    if (workoutSets == null || workoutReps == null) return false;
+    if (workoutForm.name == "") return false;
+    if (workoutForm.sets == null || workoutForm.reps == null) return false;
     if (selectedDays.length == 0) return false;
     return true;
   }
 
   async function requestDeleteWorkout(workout) {
     if (!workout) return;
-    modalStore.show({
-      title: "Deleting " + workout.name,
-      content: `Do you want to delete ${workout.name} from ${workout.day}?`,
-      closeText: "Cancel",
-      acceptText: "Confirm",
-
-      onAccept: async () => {
-        deleteWorkout(workout);
-      },
-
-      onClose: () => {
-        console.log("Deletion cancelled");
-      },
-    });
+    confirm("Deleting " + workout.name, `Do you want to delete ${workout.name} from ${workout.day}?`, () => deleteWorkout(workout));
   }
   async function deleteWorkout(workout) {
     await workoutStore.remove(workout, viewedDay);
@@ -121,85 +123,60 @@
     await workoutStore.swap(movedWorkout, otherWorkout, viewedDay);
   }
 
-  // State of the entire routine, not just individual workouts
-  const RoutineState = {
-    STOPPED: "stopped",
-    RUNNING: "running",
-    PAUSED: "paused",
-    COMPLETED: "completed",
-  };
+  function handleEditClick(workout) {
+    showAddWorkoutPanel = true;
+    workoutToEdit = workout;
 
-  let routineState = RoutineState.STOPPED;
+    workoutForm.name = workout.name;
+    workoutForm.reps = workout.reps;
+    workoutForm.sets = workout.sets;
+    workoutForm.unit = workout.unit;
+    workoutForm.unitAmount = workout.unitAmount;
+    selectedDays = [workout.day];
+    scrollToTop();
+  }
+
+  function confirm(title, content, onAccept = null, acceptText = "Confirm", closeText = "Cancel", onClose = null) {
+    modalStore.show({
+      title,
+      content,
+      closeText: "Cancel",
+      acceptText: "Confirm",
+      onAccept,
+    });
+  }
 
   function startRoutine() {
-    routineState = RoutineState.RUNNING;
+    routineStore.start();
     showAddWorkoutPanel = false;
   }
 
   function pauseRoutine() {
-    if (routineState == RoutineState.PAUSED) {
-      routineState = RoutineState.RUNNING;
-    } else {
-      routineState = RoutineState.PAUSED;
-    }
+    routineStore.togglePause();
   }
 
   function updateWorkoutCompletion(delta) {
-    completedWorkouts = Math.max(0, Math.min($workoutStore.totalWorkouts, completedWorkouts + delta));
-    if (completedWorkouts == $workoutStore.totalWorkouts) {
-      routineState = RoutineState.COMPLETED;
-    } else {
-      routineState = RoutineState.RUNNING;
-    }
+    routineStore.updateProgress(delta, $workoutStore.totalWorkouts);
   }
 
   function requestEndRoutine() {
-    modalStore.show({
-      title: "Complete routine",
-      content: `Are you ready to complete the routine?`,
-      closeText: "Cancel",
-      acceptText: "Confirm",
-
-      onAccept: () => {
-        endRoutine();
-      },
-
-      onClose: () => {
-        console.log("Cancelled end routine");
-      },
-    });
+    confirm("Complete routine", "Are you ready to complete the routine?", () => endRoutine());
   }
 
   function endRoutine() {
-    routineState = RoutineState.STOPPED;
-    completedWorkouts = 0;
+    routineStore.reset();
+
     scrollToTop();
-    toastStore.success("Routine completed and stored!");
-    console.log("Routine ended");
+    toastStore.success("Routine completed and saved!");
   }
 
   function requestCancelRoutine() {
-    modalStore.show({
-      title: "Cancel routine",
-      content: `Do you want to cancel the active routine? Your progress won't be saved.`,
-      closeText: "Cancel",
-      acceptText: "Confirm",
-
-      onAccept: () => {
-        cancelRoutine();
-      },
-
-      onClose: () => {
-        console.log("Cancelled cancel routine");
-      },
-    });
+    confirm("Cancel routine", "Do you want to cancel the active routine? Your progress won't be saved.", () => cancelRoutine());
   }
 
   function cancelRoutine() {
-    routineState = RoutineState.STOPPED;
-    completedWorkouts = 0;
+    routineStore.reset();
     scrollToTop();
-    console.log("Routine cancelled");
   }
 
   function openAddWorkout(dayChosen) {
@@ -210,13 +187,10 @@
     scrollToTop();
   }
 
-  function cancelAddWorkout() {
-    workoutName = "";
-    workoutReps = 15;
-    workoutSets = 3;
-    unitAmount = 60;
+  function resetFormData() {
+    workoutForm = { ...defaultWorkoutForm };
     selectedDays = [];
-    selectedUnit = units[units.length - 1];
+    workoutToEdit = null;
     showAddWorkoutPanel = false;
   }
 
@@ -240,26 +214,30 @@
 <ToastContainer />
 
 <main class="app-container">
-  {#if routineState !== RoutineState.STOPPED}
-    <div class="running-timer-section" class:completed={completedWorkouts == $workoutStore.totalWorkouts} transition:fade={{ y: -20, duration: 100 }}>
-      <Timer timerState={routineState} />
+  {#if $routineStore.state !== RoutineState.STOPPED}
+    <div
+      class="running-timer-section"
+      class:completed={$routineStore.completedWorkouts == $workoutStore.totalWorkouts}
+      transition:fade={{ y: -20, duration: 100 }}
+    >
+      <Timer timerState={$routineStore.state} />
 
       <div class="progress-section" transition:fade={{ y: -20, duration: 100 }}>
         <div class="progress-label">
-          {completedWorkouts} / {$workoutStore.totalWorkouts} completed
+          {$routineStore.completedWorkouts} / {$workoutStore.totalWorkouts} completed
         </div>
 
-        <ProgressBar progress={completedWorkouts} total={$workoutStore.totalWorkouts} />
+        <ProgressBar progress={$routineStore.completedWorkouts} total={$workoutStore.totalWorkouts} />
       </div>
 
       <button
         onclick={pauseRoutine}
         class="btn-pause"
-        class:paused={routineState === RoutineState.PAUSED || routineState === RoutineState.COMPLETED}
-        disabled={routineState === RoutineState.COMPLETED}
+        class:paused={$routineStore.state === RoutineState.PAUSED || $routineStore.state === RoutineState.COMPLETED}
+        disabled={$routineStore.state === RoutineState.COMPLETED}
       >
         <span class="material-icons">
-          {routineState !== RoutineState.PAUSED ? "pause" : "play_arrow"}
+          {$routineStore.state !== RoutineState.PAUSED ? "pause" : "play_arrow"}
         </span>
       </button>
     </div>
@@ -267,19 +245,19 @@
   {#if showScrollButton}
     <button
       class="btn-scroll"
-      class:stick-higher={routineState === RoutineState.STOPPED}
+      class:stick-higher={$routineStore.state === RoutineState.STOPPED}
       onclick={() => scrollToTop()}
       transition:fly={{ y: -20, duration: 100 }}
     >
       <span class="material-symbols-outlined"> keyboard_double_arrow_up </span>
     </button>
   {/if}
-  {#if routineState === RoutineState.PAUSED}
+  {#if $routineStore.state === RoutineState.PAUSED}
     <div class="pause-indicator" transition:fly={{ y: -20, duration: 250 }}>Paused</div>
   {/if}
   <div class="divider"></div>
 
-  {#if routineState === RoutineState.STOPPED}
+  {#if $routineStore.state === RoutineState.STOPPED}
     <div class="controls-panel" transition:fade={{ y: -20, duration: 100 }}>
       <div class="form-grid">
         <div class="section-header" transition:fade={{ y: -20, duration: 250 }}>
@@ -301,38 +279,42 @@
           </button>
         {/if}
         {#if showAddWorkoutPanel}
+          <h2 transition:fly={{ y: -20, duration: 250 }}>{workoutToEdit ? "Editing Workout" : "Adding Workout"}</h2>
           <div class="form-group" transition:fly={{ y: -20, duration: 250 }}>
             <label for="workout-name">Workout name</label>
-            <input id="workout-name" bind:value={workoutName} placeholder="e.g. Bench Press" />
+            <input id="workout-name" bind:value={workoutForm.name} placeholder="e.g. Bench Press" />
           </div>
+          {#if !workoutToEdit}
+            <div class="form-group" transition:fly={{ y: -20, duration: 250 }}>
+              <label for="workout-name">Select days</label>
+            </div>
+
+            <div class="day-selector" transition:fly={{ y: -20, duration: 250 }}>
+              {#each days.filter((d) => d !== "All") as day}
+                <label>
+                  <input type="checkbox" checked={selectedDays.includes(day)} onchange={() => toggleDaySelection(day)} />
+                  {day}
+                </label>
+              {/each}
+            </div>
+          {/if}
           <div class="form-group" transition:fly={{ y: -20, duration: 250 }}>
-            <label for="workout-name">Select days</label>
-          </div>
-          <div class="day-selector" transition:fly={{ y: -20, duration: 250 }}>
-            {#each days.filter((d) => d !== "All") as day}
-              <label>
-                <input type="checkbox" checked={selectedDays.includes(day)} onchange={() => toggleDaySelection(day)} />
-                {day}
-              </label>
-            {/each}
-          </div>
-          <div class="form-group" transition:fly={{ y: -20, duration: 250 }}>
-            <NumberInput label="# Reps" bind:value={workoutReps} />
+            <NumberInput label="# Reps" bind:value={workoutForm.reps} />
           </div>
 
           <div class="form-group" transition:fly={{ y: -20, duration: 250 }}>
-            <NumberInput label="# Sets" bind:value={workoutSets} />
+            <NumberInput label="# Sets" bind:value={workoutForm.sets} />
           </div>
 
           <div class="form-group" transition:fly={{ y: -20, duration: 250 }}>
             <label for="units">Unit</label>
-            <select id="units" bind:value={selectedUnit}>
+            <select id="units" bind:value={workoutForm.unit}>
               {#each units as unit}
                 <option value={unit}>{unit}</option>
               {/each}
             </select>
-            {#if selectedUnit != "None"}
-              <NumberInput label="Amount" bind:value={unitAmount} />
+            {#if workoutForm.unit != "None"}
+              <NumberInput label="Amount" bind:value={workoutForm.unitAmount} />
             {/if}
           </div>
         {/if}
@@ -340,11 +322,14 @@
 
       {#if showAddWorkoutPanel}
         <div class="button-row" transition:fly={{ y: -20, duration: 250 }}>
-          <button class="btn-primary" onclick={addWorkout}>
-            <span class="material-icons">add</span>
-            Add Workout
+          <button class="btn-primary" onclick={handleWorkoutSubmit}>
+            <span class="material-icons">
+              {workoutToEdit ? "edit" : "add"}
+            </span>
+
+            {workoutToEdit ? "Save Changes" : "Add Workout"}
           </button>
-          <button class="btn-danger secondary" onclick={cancelAddWorkout}>
+          <button class="btn-danger secondary" onclick={resetFormData}>
             <span class="material-icons">close</span>
             Cancel
           </button>
@@ -359,7 +344,7 @@
   {/if}
 
   <div class="workouts-section">
-    {#if routineState === RoutineState.STOPPED && showAddWorkoutPanel === false}
+    {#if $routineStore.state === RoutineState.STOPPED && showAddWorkoutPanel === false}
       <button class="btn-create" onclick={() => openAddWorkout(viewedDay)}>
         <span class="material-icons">add</span>
         Add workout
@@ -381,12 +366,13 @@
               {#each dayWorkouts as workout (workout.id)}
                 <WorkoutCard
                   selectedDay={viewedDay}
-                  cardState={routineState}
+                  cardState={$routineStore.state}
                   {workout}
                   deleteWorkout={requestDeleteWorkout}
                   changePosition={swapWorkouts}
                   {updateWorkoutCompletion}
                   totalWorkouts={dayWorkouts.length}
+                  editWorkout={handleEditClick}
                 />
               {/each}
             {:else}
@@ -400,21 +386,22 @@
         {#each $workoutStore.workouts as workout (workout.id)}
           <WorkoutCard
             selectedDay={viewedDay}
-            cardState={routineState}
+            cardState={$routineStore.state}
             {workout}
             deleteWorkout={requestDeleteWorkout}
             changePosition={swapWorkouts}
             {updateWorkoutCompletion}
             totalWorkouts={$workoutStore.totalWorkouts}
+            editWorkout={handleEditClick}
           />
         {/each}
       </div>
     {/if}
   </div>
 
-  {#if routineState !== RoutineState.STOPPED}
+  {#if $routineStore.state !== RoutineState.STOPPED}
     <div class="footer-container" transition:fade={{ y: -20, duration: 100 }}>
-      <button onclick={requestEndRoutine} disabled={completedWorkouts < $workoutStore.totalWorkouts} class="btn-stop">
+      <button onclick={requestEndRoutine} disabled={$routineStore.completedWorkouts < $workoutStore.totalWorkouts} class="btn-stop">
         <span class="material-symbols-outlined"> trophy </span>
         Complete Routine
       </button>

@@ -4,9 +4,10 @@
   import ProgressBar from "./ProgressBar.svelte";
   import { fade } from "svelte/transition";
 
-  let { cardState, workout, deleteWorkout, changePosition, updateWorkoutCompletion, totalWorkouts } = $props();
+  let { cardState, workout, deleteWorkout, editWorkout, changePosition, updateWorkoutCompletion, totalWorkouts } = $props();
   let completedSets = $state(0);
   let createdDate = $state("");
+  let updatedDate = $state("");
 
   $effect(() => {
     createdDate = new Date(workout.createdAt).toLocaleDateString(undefined, {
@@ -14,6 +15,14 @@
       day: "numeric",
       year: "numeric",
     });
+
+    if (workout.lastUpdated != null) {
+      updatedDate = new Date(workout.lastUpdated).toLocaleDateString(undefined, {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      });
+    }
   });
 
   const CardState = {
@@ -77,23 +86,33 @@
         <span class="created-date">
           {"Added: " + createdDate}
         </span>
+        {#if updatedDate != ""}
+          <span class="created-date">
+            {"Last edited: " + updatedDate}
+          </span>
+        {/if}
       </div>
     </div>
   </div>
 
   {#if cardState === CardState.STOPPED}
     <div class="card-actions">
-      <button class="btn-delete" onclick={() => deleteWorkout(workout)} title="Delete workout">
-        <span class="material-icons">close</span>
+      <button class="btn-edit" onclick={() => editWorkout(workout)} title="Edit workout">
+        <span class="material-symbols-outlined">edit</span>
       </button>
+      <div class="right-actions">
+        <button class="btn-delete" onclick={() => deleteWorkout(workout)} title="Delete workout">
+          <span class="material-icons">delete</span>
+        </button>
 
-      <button class="btn-move" class:hidden={workout.position <= 0} onclick={() => changePosition(workout, -1)} title="Move up">
-        <span class="material-symbols-outlined">arrow_drop_up</span>
-      </button>
+        <button class="btn-move" class:hidden={workout.position <= 0} onclick={() => changePosition(workout, -1)} title="Move up">
+          <span class="material-symbols-outlined">arrow_drop_up</span>
+        </button>
 
-      <button class="btn-move" class:hidden={workout.position >= totalWorkouts - 1} onclick={() => changePosition(workout, 1)} title="Move down">
-        <span class="material-symbols-outlined">arrow_drop_down</span>
-      </button>
+        <button class="btn-move" class:hidden={workout.position >= totalWorkouts - 1} onclick={() => changePosition(workout, 1)} title="Move down">
+          <span class="material-symbols-outlined">arrow_drop_down</span>
+        </button>
+      </div>
     </div>
   {/if}
 </div>
@@ -140,9 +159,14 @@
     min-width: 0;
   }
 
+  .right-actions {
+    display: flex;
+    gap: var(--spacing-xs);
+    flex-direction: column;
+  }
+
   .card-actions {
     display: flex;
-    flex-direction: column;
     gap: var(--spacing-xs);
     flex-shrink: 0;
     align-self: stretch;
@@ -188,7 +212,6 @@
     width: 34px;
     height: 34px;
     border-radius: var(--radius-sm);
-    margin-bottom: auto;
   }
 
   .btn-delete:hover {
@@ -254,10 +277,24 @@
   .btn-move:hover {
     background: rgba(178, 75, 255, 0.1);
   }
+
+  .btn-edit {
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--color-orange);
+    border: 1px solid rgba(255, 178, 90, 0.22);
+    padding: 7px;
+    width: 34px;
+    height: 34px;
+    border-radius: var(--radius-sm);
+  }
+
+  .btn-edit:hover {
+    background: rgba(255, 177, 75, 0.1);
+  }
+
   .card-footer {
-    margin-top: auto;
     display: flex;
-    justify-content: flex-start;
+    flex-direction: column;
   }
 
   .created-date {
@@ -291,12 +328,9 @@
       font-size: var(--font-size-base);
     }
 
+    .btn-delete,
+    .btn-edit,
     .btn-move {
-      width: 40px;
-      height: 40px;
-    }
-
-    .btn-delete {
       width: 40px;
       height: 40px;
     }

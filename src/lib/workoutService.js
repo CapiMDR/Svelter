@@ -17,6 +17,7 @@ export async function addWorkoutToDays(workoutData, days) {
       await db.workouts.add({
         ...workoutData,
         day,
+        createdAt: Date.now(),
         position: dayWorkouts.length,
       });
     }
@@ -49,5 +50,12 @@ export async function swapWorkoutPositions(workoutA, workoutB) {
     await db.workouts.update(workoutB.id, {
       position: workoutB.position,
     });
+  });
+}
+
+export async function editWorkout(workout, newData) {
+  await db.workouts.update(workout.id, {
+    ...newData,
+    lastUpdated: Date.now(),
   });
 }

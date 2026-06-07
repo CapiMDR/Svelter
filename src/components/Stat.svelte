@@ -1,8 +1,10 @@
 <script>
+  // @ts-nocheck
+  import { fade } from "svelte/transition";
   let { type, stat } = $props();
 </script>
 
-<div class="stat">
+<div class="stat" transition:fade={{ y: -20, duration: 250 }}>
   <span class="stat-label">{type}</span>
   <span class="stat-value">{stat}</span>
 </div>

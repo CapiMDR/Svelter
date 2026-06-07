@@ -1,7 +1,7 @@
 // @ts-nocheck
 import { writable } from "svelte/store";
 
-import { getAllWorkouts, getWorkoutsByDay, addWorkoutToDays, deleteWorkoutById, swapWorkoutPositions } from "../workoutService.js";
+import { getAllWorkouts, getWorkoutsByDay, addWorkoutToDays, deleteWorkoutById, swapWorkoutPositions, editWorkout } from "../workoutService.js";
 
 const DAY_ORDER = {
   Monday: 0,
@@ -98,12 +98,19 @@ function createWorkoutStore() {
     await load(currentViewDay);
   }
 
+  async function edit(workout, newData, currentViewDay) {
+    await editWorkout(workout, newData);
+
+    await load(currentViewDay);
+  }
+
   return {
     subscribe,
     load,
     add,
     remove,
     swap,
+    edit,
   };
 }
 

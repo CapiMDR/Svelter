@@ -7,6 +7,7 @@
   import { modalStore } from "../lib/stores/modalStore.js";
   import { toastStore } from "../lib/stores/toastStore.js";
   import { routineStore, RoutineState } from "../lib/stores/routineStore.js";
+  import { dayAliasStore } from "../lib/stores/dayAliasStore.js";
 
   import WorkoutCard from "../components/WorkoutCard.svelte";
   import NavBar from "../components/NavBar.svelte";
@@ -17,7 +18,6 @@
   import RoutineHeader from "../components/RoutineHeader.svelte";
   import ScrollTopButton from "../components/ScrollTopButton.svelte";
   import WorkoutForm from "../components/WorkoutForm.svelte";
-  import { editWorkout } from "../lib/workoutService.js";
 
   const today = new Intl.DateTimeFormat("en-US", { weekday: "long" }).format(new Date());
   let viewedDay = today; // Day that is being viewed by the user, defaults to current day
@@ -26,13 +26,15 @@
 
   // Data states
   const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday", "All"];
-  const units = ["Kg", "lb", "Seconds", "Minutes", "None"];
 
   onMount(() => {
     workoutStore.load(viewedDay);
+    dayAliasStore.load();
   });
 
   let showWorkoutForm = false; // Whether the form for adding a workout is open or not
+  let editingDay = null; // which day is currently being edited for alias
+  let aliasInput = "";
 
   function toggleDaySelection(day) {
     if (selectedDays.includes(day)) {
@@ -44,32 +46,16 @@
 
   async function requestDeleteWorkout(workout) {
     if (!workout) return;
-    confirm("Deleting " + workout.name, `Do you want to delete ${workout.name} from ${workout.day}?`, () => deleteWorkout(workout));
+    confirmModal("Deleting " + workout.name, `Do you want to delete ${workout.name} from ${workout.day}?`, () => deleteWorkout(workout));
   }
+
   async function deleteWorkout(workout) {
     await workoutStore.remove(workout, viewedDay);
     toastStore.success("Workout deleted");
   }
 
   async function swapWorkouts(movedWorkout, direction) {
-    const dayWorkouts = $workoutStore.workouts.filter((w) => w.day === movedWorkout.day);
-
-    const newPosition = movedWorkout.position + direction;
-
-    if (newPosition < 0 || newPosition >= dayWorkouts.length) {
-      return;
-    }
-
-    const otherWorkout = dayWorkouts.find((w) => w.position === newPosition);
-
-    if (!otherWorkout) return;
-
-    const oldPosition = movedWorkout.position;
-
-    movedWorkout.position = newPosition;
-    otherWorkout.position = oldPosition;
-
-    await workoutStore.swap(movedWorkout, otherWorkout, viewedDay);
+    await workoutStore.swap(movedWorkout, direction, viewedDay);
   }
 
   function handleEditClick(workout) {
@@ -78,7 +64,7 @@
     scrollToTop();
   }
 
-  function confirm(title, content, onAccept = null, acceptText = "Confirm", closeText = "Cancel", onClose = null) {
+  function confirmModal(title, content, onAccept = null, acceptText = "Confirm", closeText = "Cancel", onClose = null) {
     modalStore.show({
       title,
       content,
@@ -102,7 +88,7 @@
   }
 
   function requestEndRoutine() {
-    confirm("Complete routine", "Are you ready to complete the routine?", () => endRoutine());
+    confirmModal("Complete routine", "Are you ready to complete the routine?", () => endRoutine());
   }
 
   function endRoutine() {
@@ -113,7 +99,7 @@
   }
 
   function requestCancelRoutine() {
-    confirm("Cancel routine", "Do you want to cancel the active routine? Your progress won't be saved.", () => cancelRoutine());
+    confirmModal("Cancel routine", "Do you want to cancel the active routine? Your progress won't be saved.", () => cancelRoutine());
   }
 
   function cancelRoutine() {
@@ -125,6 +111,23 @@
     showWorkoutForm = true;
     selectedDays = dayChosen === "All" ? days.filter((d) => d !== "All") : [dayChosen];
     scrollToTop();
+  }
+
+  function openAliasEditor(day) {
+    editingDay = day;
+    aliasInput = $dayAliasStore[day] ?? "";
+  }
+
+  async function saveAlias(day) {
+    await dayAliasStore.save(day, aliasInput);
+    toastStore.success("Alias saved");
+    editingDay = null;
+    aliasInput = "";
+  }
+
+  function cancelAlias() {
+    editingDay = null;
+    aliasInput = "";
   }
 
   function closeWorkoutForm() {
@@ -146,12 +149,7 @@
 <ToastContainer />
 <main class="app-container">
   {#if $routineStore.state !== RoutineState.STOPPED}
-    <RoutineHeader
-      routineState={$routineStore.state}
-      completed={$routineStore.completedWorkouts}
-      total={$workoutStore.totalWorkouts}
-      onPause={pauseRoutine}
-    />
+    <RoutineHeader completed={$routineStore.completedWorkouts} total={$workoutStore.totalWorkouts} onPause={pauseRoutine} />
   {/if}
   <ScrollTopButton stickHigher={$routineStore.state === RoutineState.STOPPED} {scrollToTop} />
   {#if $routineStore.state === RoutineState.PAUSED}
@@ -171,10 +169,12 @@
           {/each}
         </select>
         {#if !showWorkoutForm}
-          <button onclick={startRoutine} class="btn-timer" disabled={$workoutStore.totalWorkouts <= 0}>
-            <span class="material-icons">play_arrow</span> Start Routine
-          </button>
-          {#if viewedDay === "All"}
+          {#if viewedDay !== "All"}
+            <button onclick={startRoutine} class="btn-timer" disabled={$workoutStore.totalWorkouts <= 0} transition:fade={{ y: -20, duration: 250 }}>
+              <span class="material-icons">play_arrow</span>
+              {$dayAliasStore[viewedDay] == undefined ? "Start Routine" : "Start " + $dayAliasStore[viewedDay]}
+            </button>
+          {:else}
             <div class="day-selection-warning" transition:fade={{ y: -20, duration: 250 }}>
               Viewing all workouts. View a specific day to start its routine.
             </div>
@@ -183,13 +183,14 @@
       </div>
     </div>
   {/if}
-
   {#if $routineStore.state === RoutineState.STOPPED && showWorkoutForm}
-    <WorkoutForm {days} {units} {viewedDay} bind:selectedDays {workoutToEdit} {toggleDaySelection} {startRoutine} {closeWorkoutForm} />
+    <WorkoutForm {days} {viewedDay} bind:selectedDays {workoutToEdit} {toggleDaySelection} {startRoutine} {closeWorkoutForm} />
   {/if}
   <div class="workouts-section" transition:fade={{ y: -20, duration: 250 }}>
     {#if $routineStore.state === RoutineState.STOPPED && showWorkoutForm === false}
-      <button class="btn-create" onclick={() => openWorkoutForm(viewedDay)}> <span class="material-icons">add</span> Add workout </button>
+      <div class="form-group">
+        <button class="btn-create" onclick={() => openWorkoutForm(viewedDay)}> <span class="material-icons">add</span> Add workout </button>
+      </div>
     {/if}
     {#if $workoutStore.workouts.length === 0}
       <div class="empty-state" transition:fade={{ y: -20, duration: 250 }}>
@@ -201,12 +202,34 @@
       <div class="workouts-container" transition:fade={{ y: -20, duration: 250 }}>
         {#each $workoutStore.groupedWorkouts as [day, dayWorkouts]}
           <div class="day-group">
-            <Stat type={"Day"} stat={day} />
+            <div class="day-header">
+              <div class="day-title">
+                <Stat label={day} value={$dayAliasStore[day]} />
+                {#if $routineStore.state != RoutineState.RUNNING}
+                  {#if editingDay !== day}
+                    <button class="btn-edit" onclick={() => openAliasEditor(day)}> ✏️ </button>
+                  {/if}
+                {/if}
+              </div>
+
+              {#if editingDay === day}
+                <div class="alias-editor" transition:fade={{ y: -20, duration: 250 }}>
+                  <input
+                    class="alias-input"
+                    placeholder="Add a day alias. E.g. Leg day"
+                    bind:value={aliasInput}
+                    onkeydown={(e) => e.key === "Enter" && saveAlias(day)}
+                  />
+                  <button class="button accept" onclick={() => saveAlias(day)}> Save </button>
+                  <button class="button danger" onclick={cancelAlias}> Cancel </button>
+                </div>
+              {/if}
+            </div>
+
             {#if dayWorkouts.length > 0}
               {#each dayWorkouts as workout (workout.id)}
                 <WorkoutCard
                   selectedDay={viewedDay}
-                  cardState={$routineStore.state}
                   {workout}
                   deleteWorkout={requestDeleteWorkout}
                   changePosition={swapWorkouts}
@@ -226,7 +249,6 @@
         {#each $workoutStore.workouts as workout (workout.id)}
           <WorkoutCard
             selectedDay={viewedDay}
-            cardState={$routineStore.state}
             {workout}
             deleteWorkout={requestDeleteWorkout}
             changePosition={swapWorkouts}
@@ -239,9 +261,10 @@
     {/if}
   </div>
   {#if $routineStore.state !== RoutineState.STOPPED}
-    <div class="footer-container" transition:fade={{ y: -20, duration: 100 }}>
+    <div class="footer-container" transition:fade={{ y: -20, duration: 250 }}>
       <button onclick={requestEndRoutine} disabled={$routineStore.completedWorkouts < $workoutStore.totalWorkouts} class="btn-stop">
-        <span class="material-symbols-outlined"> trophy </span> Complete Routine
+        <span class="material-symbols-outlined"> trophy </span>
+        {$dayAliasStore[viewedDay] == undefined ? " Complete Routine" : "Complete " + $dayAliasStore[viewedDay]}
       </button> <button onclick={requestCancelRoutine} class="button danger"> <span class="material-icons">cancel</span> Cancel Routine </button>
     </div>
   {/if}
@@ -358,6 +381,7 @@
     color: var(--text-tertiary);
     border: 2px dashed var(--text-tertiary);
     border-radius: var(--radius-md);
+    margin-top: var(--spacing-sm);
   }
 
   .section-header {
@@ -366,6 +390,66 @@
     align-items: center;
     margin-bottom: var(--spacing-xl);
     gap: var(--spacing-lg);
+  }
+
+  .day-header {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .day-title {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+  }
+
+  .btn-edit {
+    background: transparent;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    border-radius: 50%;
+    color: var(--text-secondary);
+    background: var(--bg-secondary);
+    font-size: 0.8rem;
+    width: 2rem;
+    height: 2rem;
+  }
+
+  .alias-editor {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    margin-bottom: var(--spacing-md);
+  }
+
+  @media (max-width: 480px) {
+    .day-header {
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .alias-editor {
+      flex-direction: column;
+      align-items: stretch;
+      width: 80%;
+    }
+
+    .alias-input {
+      width: 100%;
+      min-width: 0;
+    }
+  }
+
+  .alias-input {
+    padding: 6px 8px;
+    border-radius: 6px;
+    border: 1px solid var(--text-tertiary);
+    min-width: 160px;
   }
 
   .section-header h2 {
@@ -399,6 +483,7 @@
     background: var(--bg-secondary);
     border: 1px dashed var(--color-accent-primary);
     border-radius: var(--radius-md);
+    margin-top: var(--spacing-sm);
   }
 
   @media (max-width: 768px) {

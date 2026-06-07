@@ -8,7 +8,11 @@ export default defineConfig({
 
     VitePWA({
       registerType: "autoUpdate",
-
+      includeAssets: ["favicon.svg"],
+      registerType: "autoUpdate",
+      workbox: {
+        navigateFallback: "index.html",
+      },
       manifest: {
         name: "My App",
         short_name: "MyApp",

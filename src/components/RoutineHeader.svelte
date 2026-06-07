@@ -5,11 +5,11 @@
   import { routineStore, RoutineState } from "../lib/stores/routineStore.js";
   import { fly } from "svelte/transition";
 
-  let { routineState, completed, total, onPause } = $props();
+  let { completed, total, onPause } = $props();
 </script>
 
 <div class="running-timer-section" class:completed={completed === total} transition:fly={{ y: -20, duration: 100 }}>
-  <Timer timerState={routineState} />
+  <Timer timerState={$routineStore.state} />
 
   <div class="progress-section">
     <div class="progress-label">
@@ -26,7 +26,7 @@
     disabled={$routineStore.state === RoutineState.COMPLETED}
   >
     <span class="material-icons">
-      {routineState !== "PAUSED" ? "pause" : "play_arrow"}
+      {$routineStore.state !== RoutineState.PAUSED ? "pause" : "play_arrow"}
     </span>
   </button>
 </div>

@@ -3,7 +3,7 @@
 </script>
 
 <nav class="navbar">
-  <div class="version">v2.3.4</div>
+  <div class="version">v2.5.4</div>
   <div class="navbar-content">
     <div class="navbar-brand">
       <span class="icon">💪</span>

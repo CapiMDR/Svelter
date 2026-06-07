@@ -4,44 +4,51 @@
   import NumberInput from "./NumberInput.svelte";
   import { workoutStore } from "../lib/stores/workoutStore.js";
   import { toastStore } from "../lib/stores/toastStore.js";
+  import { fromBase, toBase, UNITS } from "../lib/units.js";
+
+  $effect(() => {
+    workoutForm = workoutToEdit ? { ...workoutToEdit } : { ...defaultWorkoutForm };
+  });
 
   // Form fields for adding a workout
   const defaultWorkoutForm = {
     name: "",
     reps: 15,
     sets: 3,
-    unit: "None",
-    unitAmount: 60,
+    unit: "none",
+    value: 0,
   };
 
-  let { days, units, viewedDay, selectedDays = $bindable(), workoutToEdit, toggleDaySelection, startRoutine, closeWorkoutForm } = $props();
+  let { days, viewedDay, selectedDays = $bindable(), workoutToEdit, toggleDaySelection, startRoutine, closeWorkoutForm } = $props();
   let workoutForm = $state({ ...defaultWorkoutForm });
-
-  $effect(() => {
-    workoutForm = workoutToEdit ? { ...workoutToEdit } : { ...defaultWorkoutForm };
-  });
+  const displayAmount = $derived(fromBase(workoutForm.value ?? 0, workoutForm.unit));
 
   async function handleSubmit() {
+    if (!isValidWorkout()) {
+      toastStore.info("Name and day required");
+      return;
+    }
     if (workoutToEdit) {
       editWorkout();
     } else {
       addWorkout();
     }
-    resetFormData();
+    handleClose();
   }
 
   async function addWorkout() {
-    if (!isValidWorkout()) {
-      toastStore.info("Name and day required");
-      return;
-    }
     await workoutStore.add(
-      { name: workoutForm.name, reps: workoutForm.reps, sets: workoutForm.sets, unit: workoutForm.unit, unitAmount: workoutForm.unitAmount },
+      {
+        name: workoutForm.name,
+        reps: workoutForm.reps,
+        sets: workoutForm.sets,
+        unit: workoutForm.unit,
+        value: workoutForm.value,
+      },
       selectedDays,
       viewedDay,
     );
     toastStore.success("Workout added");
-    closeWorkoutForm();
   }
 
   function isValidWorkout() {
@@ -58,22 +65,39 @@
       reps: workoutForm.reps,
       sets: workoutForm.sets,
       unit: workoutForm.unit,
-      unitAmount: workoutForm.unitAmount,
+      value: workoutForm.value,
     };
     await workoutStore.edit(workoutToEdit, newData, viewedDay);
-    resetFormData();
-    closeWorkoutForm();
   }
 
-  function handleCancel() {
+  function handleClose() {
     resetFormData();
     closeWorkoutForm();
   }
 
   function resetFormData() {
     workoutForm = { ...defaultWorkoutForm };
-    selectedDays = [];
+    const today = new Intl.DateTimeFormat("en-US", { weekday: "long" }).format(new Date());
+    selectedDays = [today];
     workoutToEdit = null;
+  }
+
+  const availableUnits = $derived.by(() => {
+    if (!workoutToEdit) {
+      return Object.entries(UNITS);
+    }
+
+    const dimension = UNITS[workoutToEdit.unit].dimension;
+
+    return Object.entries(UNITS).filter(([_, unit]) => unit.dimension === dimension);
+  });
+
+  function handleUnitChange(newUnit) {
+    workoutForm.unit = newUnit;
+  }
+
+  function updateDisplayAmount(amount) {
+    workoutForm.value = toBase(amount, workoutForm.unit);
   }
 </script>
 
@@ -91,25 +115,27 @@
         {/each}
       </div>
     {/if}
-    <div class="form-group"><NumberInput label="# Reps" bind:value={workoutForm.reps} /></div>
-    <div class="form-group"><NumberInput label="# Sets" bind:value={workoutForm.sets} /></div>
+    <div class="form-group"><NumberInput label="# Reps" bind:value={workoutForm.reps} integerOnly={true} /></div>
+    <div class="form-group"><NumberInput label="# Sets" bind:value={workoutForm.sets} integerOnly={true} /></div>
     <div class="form-group">
       <label for="units">Unit</label>
-      <select id="units" bind:value={workoutForm.unit}>
-        {#each units as unit}
-          <option value={unit}>{unit}</option>
+      <select id="units" bind:value={workoutForm.unit} onchange={(e) => handleUnitChange(e.target.value)}>
+        {#each availableUnits as [id, unit]}
+          <option value={id}>
+            {unit.label}
+          </option>
         {/each}
       </select>
-      {#if workoutForm.unit != "None"}
-        <NumberInput label="Amount" bind:value={workoutForm.unitAmount} />
-      {/if}
     </div>
+    {#if workoutForm.unit != "none"}
+      <NumberInput label="Amount" value={displayAmount} onchange={updateDisplayAmount} />
+    {/if}
   </div>
   <div class="button-row" transition:fly={{ y: -20, duration: 250 }}>
     <button class="btn-primary" onclick={handleSubmit}>
       <span class="material-icons"> {workoutToEdit ? "edit" : "add"} </span>
       {workoutToEdit ? "Save Changes" : "Add Workout"}
-    </button> <button class="btn-danger secondary" onclick={handleCancel}> <span class="material-icons">close</span> Cancel </button>
+    </button> <button class="btn-danger secondary" onclick={handleClose}> <span class="material-icons">close</span> Cancel </button>
   </div>
 </div>
 

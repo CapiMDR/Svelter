@@ -3,11 +3,38 @@
   import WorkoutProgressStat from "./WorkoutProgressStat.svelte";
   import ProgressBar from "./ProgressBar.svelte";
   import { fade } from "svelte/transition";
+  import { getDisplayValue } from "../lib/units.js";
+  import { routineStore, RoutineState } from "../lib/stores/routineStore.js";
 
-  let { cardState, workout, deleteWorkout, editWorkout, changePosition, updateWorkoutCompletion, totalWorkouts } = $props();
+  let { workout, deleteWorkout, editWorkout, changePosition, updateWorkoutCompletion, totalWorkouts } = $props();
+  import { formatDifference } from "../lib/units.js";
+
   let completedSets = $state(0);
   let createdDate = $state("");
   let updatedDate = $state("");
+
+  const unitDifference = $derived.by(() => {
+    if (workout.originalValue == null || workout.originalUnit == null) {
+      return null;
+    }
+
+    // Both values are already stored in base units
+    return workout.value - workout.originalValue;
+  });
+
+  const unitDiffString = $derived.by(() => {
+    if (unitDifference == null || unitDifference === 0) {
+      return null;
+    }
+
+    return formatDifference(unitDifference, workout.unit);
+  });
+
+  const repDiff = $derived(workout.reps - workout.originalReps);
+  const repDiffString = $derived(repDiff > 0 ? "+ " + repDiff : repDiff < 0 ? "" + repDiff : undefined);
+
+  const setDiff = $derived(workout.sets - workout.originalSets);
+  const setDiffString = $derived(setDiff > 0 ? "+ " + setDiff : setDiff < 0 ? "" + setDiff : undefined);
 
   $effect(() => {
     createdDate = new Date(workout.createdAt).toLocaleDateString(undefined, {
@@ -25,13 +52,6 @@
     }
   });
 
-  const CardState = {
-    STOPPED: "stopped",
-    RUNNING: "running",
-    PAUSED: "paused",
-    COMPLETED: "completed",
-  };
-
   function completeSet() {
     if (completedSets >= workout.sets) return;
     completedSets++;
@@ -45,7 +65,7 @@
   }
 
   $effect(() => {
-    if (cardState === CardState.STOPPED) {
+    if ($routineStore.state == RoutineState.STOPPED) {
       completedSets = 0;
     }
   });
@@ -61,23 +81,31 @@
     </div>
 
     <div class="card-body">
-      <div class="stats-row" class:has-unit={workout.unit !== "None"}>
-        <Stat type={"Reps"} stat={workout.reps} />
-        <Stat type={"Set"} stat={workout.sets} />
-        {#if workout.unit !== "None"}
-          <Stat type={workout.unit} stat={workout.unitAmount} />
+      <div class="stats-row" class:has-unit={workout.unit !== "none"}>
+        <Stat label={"Reps"} value={workout.reps} delta={$routineStore.state != RoutineState.STOPPED ? undefined : repDiffString} />
+        <Stat label={"Set"} value={workout.sets} delta={$routineStore.state != RoutineState.STOPPED ? undefined : setDiffString} />
+        {#if workout.unit !== "none"}
+          <Stat
+            label={workout.unit}
+            value={getDisplayValue(workout)}
+            delta={$routineStore.state != RoutineState.STOPPED ? undefined : unitDiffString}
+          />
         {/if}
-        {#if cardState !== CardState.STOPPED}
+        {#if $routineStore.state != RoutineState.STOPPED}
           <WorkoutProgressStat type={"Done"} completed={completedSets} total={workout.sets} />
         {/if}
       </div>
-      {#if cardState !== CardState.STOPPED}
+      {#if $routineStore.state != RoutineState.STOPPED}
         <ProgressBar progress={completedSets} total={workout.sets} />
         <div class="button-group">
-          <button class="btn-adjust" onclick={() => uncompleteSet()} disabled={completedSets === 0 || cardState === CardState.PAUSED}>
+          <button class="btn-adjust" onclick={() => uncompleteSet()} disabled={completedSets === 0 || $routineStore.state == RoutineState.PAUSED}>
             <span class="material-icons">remove</span>
           </button>
-          <button class="btn-adjust" onclick={() => completeSet()} disabled={completedSets >= workout.sets || cardState === CardState.PAUSED}>
+          <button
+            class="btn-adjust"
+            onclick={() => completeSet()}
+            disabled={completedSets >= workout.sets || $routineStore.state == RoutineState.PAUSED}
+          >
             <span class="material-icons">add</span>
           </button>
         </div>
@@ -95,7 +123,7 @@
     </div>
   </div>
 
-  {#if cardState === CardState.STOPPED}
+  {#if $routineStore.state == RoutineState.STOPPED}
     <div class="card-actions">
       <button class="btn-edit" onclick={() => editWorkout(workout)} title="Edit workout">
         <span class="material-symbols-outlined">edit</span>
@@ -207,7 +235,7 @@
   .btn-delete {
     background: rgba(255, 255, 255, 0.05);
     color: var(--color-danger);
-    border: 1px solid rgba(255, 90, 125, 0.22);
+    border: 2px solid rgba(255, 90, 125, 0.22);
     padding: 7px;
     width: 34px;
     height: 34px;
@@ -262,7 +290,7 @@
   .btn-move {
     background: rgba(255, 255, 255, 0.06);
     color: var(--color-accent-secondary);
-    border: 1px solid rgba(178, 75, 255, 0.22);
+    border: 2px solid rgba(178, 75, 255, 0.22);
     padding: 8px;
     display: flex;
     align-items: center;
@@ -281,7 +309,7 @@
   .btn-edit {
     background: rgba(255, 255, 255, 0.05);
     color: var(--color-orange);
-    border: 1px solid rgba(255, 178, 90, 0.22);
+    border: 2px solid rgba(255, 178, 90, 0.22);
     padding: 7px;
     width: 34px;
     height: 34px;

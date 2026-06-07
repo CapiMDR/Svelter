@@ -1,12 +1,21 @@
 <script>
-  let { value = $bindable(), min = 1, max = 100, step = 1, label = "" } = $props();
+  let { value = $bindable(), integerOnly = false, min = 1, max = 100, step = 1, label = "", onchange = () => {} } = $props();
 
   function increment() {
     value = Math.min(max, Number(value) + step);
+    onchange(value);
   }
 
   function decrement() {
     value = Math.max(min, Number(value) - step);
+    onchange(value);
+  }
+
+  function handleInput() {
+    if (integerOnly) {
+      value = parseInt(value, 10) || 0;
+    }
+    onchange(Number(value));
   }
 </script>
 
@@ -18,7 +27,7 @@
   <div class="number-input">
     <button type="button" class="step-btn" onclick={decrement} aria-label="Decrease"> − </button>
 
-    <input id="value" bind:value type="number" {min} {max} {step} />
+    <input id="value" bind:value type="number" {min} {max} {step} oninput={handleInput} />
 
     <button type="button" class="step-btn" onclick={increment} aria-label="Increase"> + </button>
   </div>

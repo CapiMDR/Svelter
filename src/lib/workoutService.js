@@ -19,6 +19,10 @@ export async function addWorkoutToDays(workoutData, days) {
         day,
         createdAt: Date.now(),
         position: dayWorkouts.length,
+        originalUnit: workoutData.unit,
+        originalValue: workoutData.value,
+        originalReps: workoutData.reps,
+        originalSets: workoutData.sets,
       });
     }
   });

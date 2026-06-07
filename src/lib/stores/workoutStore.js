@@ -92,7 +92,24 @@ function createWorkoutStore() {
     await load(currentViewDay);
   }
 
-  async function swap(movedWorkout, otherWorkout, currentViewDay) {
+  async function swap(movedWorkout, direction, currentViewDay) {
+    const dayWorkouts = sortWorkoutsByDay(await getAllWorkouts());
+
+    const newPosition = movedWorkout.position + direction;
+
+    if (newPosition < 0 || newPosition >= dayWorkouts.length) {
+      return;
+    }
+
+    const otherWorkout = dayWorkouts.find((w) => w.position === newPosition);
+
+    if (!otherWorkout) return;
+
+    const oldPosition = movedWorkout.position;
+
+    movedWorkout.position = newPosition;
+    otherWorkout.position = oldPosition;
+
     await swapWorkoutPositions(movedWorkout, otherWorkout);
 
     await load(currentViewDay);

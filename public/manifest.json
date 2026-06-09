@@ -1,7 +1,8 @@
 {
   "name": "FitFlow",
   "short_name": "FitFlow",
-  "start_url": "/my-pwa-svelte/",
+  "start_url": "/Svelter/",
+  "scope": "/Svelter/",
   "display": "fullscreen",
   "background_color": "#121212",
   "theme_color": "#00d4ff",

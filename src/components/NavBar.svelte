@@ -7,7 +7,7 @@
   <div class="navbar-content">
     <div class="navbar-brand">
       <span class="icon">💪</span>
-      <h1 class="title">FitFlow</h1>
+      <h1 class="title">Svelter</h1>
     </div>
     <div class="navbar-time">
       <Clock />

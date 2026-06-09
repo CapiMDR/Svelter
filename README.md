@@ -1,43 +1,154 @@
-# Svelte + Vite
+<p align="center">
+  <img src="docs/icon-512.png" height="400px" alt="icon-512">
+</p>
 
-This template should help get you started developing with Svelte in Vite.
+# 💪 Svelter 
 
-## Recommended IDE Setup
+Svelter is an offline-first Progressive Web App (PWA) designed to help users manage workout routines, track training progress, and monitor performance statistics. Built with Svelte (ha) and optimized for mobile devices, Svelter can be installed directly from the browser and used without an internet connection.
 
-[VS Code](https://code.visualstudio.com/) + [Svelte](https://marketplace.visualstudio.com/items?itemName=svelte.svelte-vscode).
+## Features
 
-## Need an official Svelte framework?
+### Workout Tracking
 
-Check out [SvelteKit](https://github.com/sveltejs/kit#readme), which is also powered by Vite. Deploy anywhere with its serverless-first approach and adapt to various platforms, with out of the box support for TypeScript, SCSS, and Less, and easily-added support for mdsvex, GraphQL, PostCSS, Tailwind CSS, and more.
+* Create and manage workout routines
+* Organize exercises within routines
+* Record sets, repetitions, and weights
+* Edit workout data at any time
 
-## Technical considerations
+### Progress Monitoring
 
-**Why use this over SvelteKit?**
+* Track workout history
+* View progression over time
+* Monitor training volume and consistency
+* Store historical workout data locally
 
-- It brings its own routing solution which might not be preferable for some users.
-- It is first and foremost a framework that just happens to use Vite under the hood, not a Vite app.
+### Offline-First Experience
 
-This template contains as little as possible to get started with Vite + Svelte, while taking into account the developer experience with regards to HMR and intellisense. It demonstrates capabilities on par with the other `create-vite` templates and is a good starting point for beginners dipping their toes into a Vite + Svelte project.
+* Works without an internet connection
+* Installable on Android and desktop devices
+* Fast loading through Service Worker caching
+* Data remains available even when offline
 
-Should you later need the extended capabilities and extensibility provided by SvelteKit, the template has been structured similarly to SvelteKit so that it is easy to migrate.
+### Local Data Storage
 
-**Why include `.vscode/extensions.json`?**
+* Uses IndexedDB for persistent storage
+* No account required
+* No cloud dependency
+* User data is saved locally
 
-Other templates indirectly recommend extensions via the README, but this file allows VS Code to prompt the user to install the recommended extension upon opening the project.
+## Technology Stack
 
-**Why enable `checkJs` in the JS template?**
+### Frontend
 
-It is likely that most cases of changing variable types in runtime are likely to be accidental, rather than deliberate. This provides advanced typechecking out of the box. Should you like to take advantage of the dynamically-typed nature of JavaScript, it is trivial to change the configuration.
+* Svelte
+* JavaScript (ES Modules)
+* HTML5
+* CSS3
 
-**Why is HMR not preserving my local component state?**
+### Storage
 
-HMR state preservation comes with a number of gotchas! It has been disabled by default in both `svelte-hmr` and `@sveltejs/vite-plugin-svelte` due to its often surprising behavior. You can read the details [here](https://github.com/sveltejs/svelte-hmr/tree/master/packages/svelte-hmr#preservation-of-local-state).
+* IndexedDB
+* Dexie.js
 
-If you have state that's important to retain within a component, consider creating an external store which would not be replaced by HMR.
+### Build & Tooling
 
-```js
-// store.js
-// An extremely simple external store
-import { writable } from 'svelte/store'
-export default writable(0)
+* Vite
+* vite-plugin-pwa
+
+### Deployment
+
+* GitHub Pages
+
+## Installation
+
+### Use the Hosted Version
+
+1. Open the deployed application at https://capimdr.github.io/Svelter/ in your browser.
+2. Select **Install App** or **Add to Home Screen** when prompted.
+3. Launch Svelter from your home screen like a native application.
+
+### Run Locally
+
+Clone the repository:
+
+```bash
+git clone https://github.com/<username>/Svelter.git
+cd Svelter
 ```
+
+Install dependencies:
+
+```bash
+npm install
+```
+
+Start the development server:
+
+```bash
+npm run dev
+```
+
+Build for production:
+
+```bash
+npm run build
+```
+
+Preview the production build:
+
+```bash
+npm run preview
+```
+
+## Project Structure
+
+```text
+src/
+├── components/      # Reusable UI components
+├── stores/          # Svelte stores
+├── views/           # Application views
+├── db/              # IndexedDB/Dexie logic
+└── main.js          # Application entry point
+
+public/             # Static assets and icons
+```
+
+## PWA Features
+
+* Installable on Android, iOS, and desktop
+* Offline functionality through Service Workers
+* Home screen integration
+* Standalone application experience
+* Cached assets for improved performance
+
+## Browser Support
+
+Svelter is designed for modern browsers that support:
+
+* Progressive Web Apps
+* IndexedDB
+* Service Workers
+* ES Modules
+
+Recommended browsers:
+
+* Google Chrome
+* Microsoft Edge
+* Samsung Internet
+
+## Roadmap
+
+Planned features include:
+
+* Personal records (PR) tracking
+* Exercise statistics and analytics
+* Progress charts
+* Workout reminders
+* Data import/export
+* Backup and restore functionality
+* Exercise templates
+* Bodyweight tracking
+
+## Contributing
+
+Contributions, bug reports, and feature requests are welcome. Feel free to open an issue or submit a pull request.

@@ -38,26 +38,13 @@ Svelter is an offline-first Progressive Web App (PWA) designed to help users man
 
 ## Technology Stack
 
-### Frontend
-
-* Svelte
-* JavaScript (ES Modules)
-* HTML5
-* CSS3
-
-### Storage
-
-* IndexedDB
-* Dexie.js
-
-### Build & Tooling
-
-* Vite
-* vite-plugin-pwa
-
-### Deployment
-
-* GitHub Pages
+| Category | Technologies |
+|-----------|-------------|
+| Frontend | ![Svelte](https://img.shields.io/badge/Svelte-FF3E00?logo=svelte&logoColor=white) ![JavaScript](https://img.shields.io/badge/JavaScript-F7DF1E?logo=javascript&logoColor=black) ![HTML5](https://img.shields.io/badge/HTML5-E34F26?logo=html5&logoColor=white) ![CSS3](https://img.shields.io/badge/CSS3-1572B6?logo=css3&logoColor=white) |
+| Storage | ![IndexedDB](https://img.shields.io/badge/IndexedDB-003B57?logoColor=white) ![Dexie.js](https://img.shields.io/badge/Dexie.js-2E7D32?logoColor=white) |
+| Build & Tooling | ![Vite](https://img.shields.io/badge/Vite-646CFF?logo=vite&logoColor=white) ![vite-plugin-pwa](https://img.shields.io/badge/vite--plugin--pwa-5A0FC8?logo=pwa&logoColor=white) |
+| Deployment | ![GitHub Pages](https://img.shields.io/badge/GitHub%20Pages-121013?logo=github&logoColor=white) |
+| Features | ![PWA](https://img.shields.io/badge/PWA-5A0FC8?logo=pwa&logoColor=white) ![Offline First](https://img.shields.io/badge/Offline--First-success) ![Installable](https://img.shields.io/badge/Installable-App-blue) |
 
 ## Installation
 

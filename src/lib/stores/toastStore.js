@@ -7,7 +7,7 @@ function createToastStore() {
   const { subscribe, update } = writable([]);
 
   function add(message, type = "info", duration = 3000) {
-    const id = crypto.randomUUID();
+    const id = crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`;
 
     let added = false;
 

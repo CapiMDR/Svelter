@@ -8,19 +8,25 @@ export default defineConfig({
 
     VitePWA({
       registerType: "autoUpdate",
-      includeAssets: ["favicon.svg"],
-      registerType: "autoUpdate",
+
+      includeAssets: ["favicon.svg", "pwa-192x192.png", "pwa-512x512.png"],
+
       workbox: {
+        globPatterns: ["**/*.{js,css,html,ico,png,svg,webmanifest}"],
         navigateFallback: "index.html",
+        cleanupOutdatedCaches: true,
       },
+
       manifest: {
+        start_url: "/",
+        scope: "/",
+
         name: "My App",
         short_name: "MyApp",
 
         display: "standalone",
 
         theme_color: "#ffffff",
-
         background_color: "#ffffff",
 
         icons: [

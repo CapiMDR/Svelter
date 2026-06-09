@@ -403,6 +403,7 @@
     align-items: center;
     justify-content: center;
     gap: 0.5rem;
+    margin-bottom: var(--spacing-sm);
   }
 
   .btn-edit {

@@ -2,49 +2,55 @@
   <img src="docs/icon-512.png" height="400px" alt="icon-512">
 </p>
 
-# 💪 Svelter 
+# Svelter 💪
 
-Svelter is an offline-first Progressive Web App (PWA) designed to help users manage workout routines, track training progress, and monitor performance statistics. Built with Svelte (ha) and optimized for mobile devices, Svelter can be installed directly from the browser and used without an internet connection.
+Svelter is an offline-first Progressive Web App (PWA) designed to help users manage workout routines, track training progress, and monitor performance statistics. Built with Svelte (haha) and optimized for mobile devices, Svelter can be installed directly from the browser and used without an internet connection.
+
+---
 
 ## Features
 
 ### Workout Tracking
 
-* Create and manage workout routines
-* Organize exercises within routines
-* Record sets, repetitions, and weights
-* Edit workout data at any time
+- Create and manage workout routines
+- Organize exercises within routines
+- Record sets, repetitions, and weights
+- Edit workout data at any time
 
 ### Progress Monitoring
 
-* Track workout history
-* View progression over time
-* Monitor training volume and consistency
-* Store historical workout data locally
+- Track workout history
+- View progression over time
+- Monitor training volume and consistency
+- Store historical workout data locally
 
 ### Offline-First Experience
 
-* Works without an internet connection
-* Installable on Android and desktop devices
-* Fast loading through Service Worker caching
-* Data remains available even when offline
+- Works without an internet connection
+- Installable on Android and desktop devices
+- Fast loading through Service Worker caching
+- Data remains available even when offline
 
 ### Local Data Storage
 
-* Uses IndexedDB for persistent storage
-* No account required
-* No cloud dependency
-* User data is saved locally
+- Uses IndexedDB for persistent storage
+- No account required
+- No cloud dependency
+- User data is saved locally
+
+---
 
 ## Technology Stack
 
-| Category | Technologies |
-|-----------|-------------|
-| Frontend | ![Svelte](https://img.shields.io/badge/Svelte-FF3E00?logo=svelte&logoColor=white) ![JavaScript](https://img.shields.io/badge/JavaScript-F7DF1E?logo=javascript&logoColor=black) ![HTML5](https://img.shields.io/badge/HTML5-E34F26?logo=html5&logoColor=white) ![CSS3](https://img.shields.io/badge/CSS3-1572B6?logo=css3&logoColor=white) |
-| Storage | ![IndexedDB](https://img.shields.io/badge/IndexedDB-003B57?logoColor=white) ![Dexie.js](https://img.shields.io/badge/Dexie.js-2E7D32?logoColor=white) |
-| Build & Tooling | ![Vite](https://img.shields.io/badge/Vite-646CFF?logo=vite&logoColor=white) ![vite-plugin-pwa](https://img.shields.io/badge/vite--plugin--pwa-5A0FC8?logo=pwa&logoColor=white) |
-| Deployment | ![GitHub Pages](https://img.shields.io/badge/GitHub%20Pages-121013?logo=github&logoColor=white) |
-| Features | ![PWA](https://img.shields.io/badge/PWA-5A0FC8?logo=pwa&logoColor=white) ![Offline First](https://img.shields.io/badge/Offline--First-success) ![Installable](https://img.shields.io/badge/Installable-App-blue) |
+| Category        | Technologies                                                                                                                                                                                                                                                                                                                               |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Frontend        | ![Svelte](https://img.shields.io/badge/Svelte-FF3E00?logo=svelte&logoColor=white) ![JavaScript](https://img.shields.io/badge/JavaScript-F7DF1E?logo=javascript&logoColor=black) ![HTML5](https://img.shields.io/badge/HTML5-E34F26?logo=html5&logoColor=white) ![CSS3](https://img.shields.io/badge/CSS3-1572B6?logo=css3&logoColor=white) |
+| Storage         | ![IndexedDB](https://img.shields.io/badge/IndexedDB-003B57?logoColor=white) ![Dexie.js](https://img.shields.io/badge/Dexie.js-2E7D32?logoColor=white)                                                                                                                                                                                      |
+| Build & Tooling | ![Vite](https://img.shields.io/badge/Vite-646CFF?logo=vite&logoColor=white) ![vite-plugin-pwa](https://img.shields.io/badge/vite--plugin--pwa-5A0FC8?logo=pwa&logoColor=white)                                                                                                                                                             |
+| Deployment      | ![GitHub Pages](https://img.shields.io/badge/GitHub%20Pages-121013?logo=github&logoColor=white)                                                                                                                                                                                                                                            |
+| Features        | ![PWA](https://img.shields.io/badge/PWA-5A0FC8?logo=pwa&logoColor=white) ![Offline First](https://img.shields.io/badge/Offline--First-success) ![Installable](https://img.shields.io/badge/Installable-App-blue)                                                                                                                           |
+
+---
 
 ## Installation
 
@@ -87,6 +93,8 @@ Preview the production build:
 npm run preview
 ```
 
+---
+
 ## Project Structure
 
 ```text
@@ -100,42 +108,58 @@ src/
 public/             # Static assets and icons
 ```
 
+---
+
 ## PWA Features
 
-* Installable on Android, iOS, and desktop
-* Offline functionality through Service Workers
-* Home screen integration
-* Standalone application experience
-* Cached assets for improved performance
+- Installable on Android, iOS, and desktop
+- Offline functionality through Service Workers
+- Home screen integration
+- Standalone application experience
+- Cached assets for improved performance
+
+---
 
 ## Browser Support
 
 Svelter is designed for modern browsers that support:
 
-* Progressive Web Apps
-* IndexedDB
-* Service Workers
-* ES Modules
+- Progressive Web Apps
+- IndexedDB
+- Service Workers
+- ES Modules
 
 Recommended browsers:
 
-* Google Chrome
-* Microsoft Edge
-* Samsung Internet
+- Google Chrome
+- Microsoft Edge
+- Samsung Internet
+
+---
 
 ## Roadmap
 
 Planned features include:
 
-* Personal records (PR) tracking
-* Exercise statistics and analytics
-* Progress charts
-* Workout reminders
-* Data import/export
-* Backup and restore functionality
-* Exercise templates
-* Bodyweight tracking
+- Personal records (PR) tracking
+- Exercise statistics and analytics
+- Progress charts
+- Workout reminders
+- Data import/export
+- Backup and restore functionality
+- Exercise templates
+- Bodyweight tracking
+
+---
 
 ## Contributing
 
 Contributions, bug reports, and feature requests are welcome. Feel free to open an issue or submit a pull request.
+
+---
+
+## Author
+
+Developed by **CapiMDR**.
+
+If you enjoy the project, consider starring the repository ⭐.

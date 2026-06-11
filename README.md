@@ -100,10 +100,11 @@ npm run preview
 ```text
 src/
 ├── components/      # Reusable UI components
-├── stores/          # Svelte stores
 ├── views/           # Application views
-├── db/              # IndexedDB/Dexie logic
-└── main.js          # Application entry point
+├── main.js          # Application entry point
+└── lib/
+    ├── db/          # IndexedDB/Dexie logic
+    └── stores/      # Svelte stores
 
 public/             # Static assets and icons
 ```

@@ -1,7 +1,7 @@
 // @ts-nocheck
 
 import { writable } from "svelte/store";
-import { db } from "../db.js";
+import { db } from "../db/db.js";
 
 function createDayAliasStore() {
   const { subscribe, set, update } = writable({});

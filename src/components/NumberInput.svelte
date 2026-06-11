@@ -1,5 +1,5 @@
 <script>
-  let { value = $bindable(), integerOnly = false, min = 1, max = 100, step = 1, label = "", onchange = () => {} } = $props();
+  let { value = $bindable(), integerOnly = false, min = 1, max = 10000, step = 1, label = "", onchange = () => {} } = $props();
 
   function increment() {
     value = Math.min(max, Number(value) + step);
@@ -13,8 +13,9 @@
 
   function handleInput() {
     if (integerOnly) {
-      value = parseInt(value, 10) || 0;
+      value = parseInt(value, 10) || min;
     }
+    value = Math.max(min, Math.min(max, Number(value)));
     onchange(Number(value));
   }
 </script>

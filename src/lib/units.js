@@ -13,28 +13,46 @@ export const UNITS = {
     factor: 1,
   },
 
-  lb: {
-    label: "lb",
-    dimension: "weight",
-    factor: 453.59237,
-  },
-
   minutes: {
     label: "Minutes",
     dimension: "time",
     factor: 60,
   },
 
+  g: {
+    label: "Grams (g)",
+    dimension: "weight",
+    factor: 1,
+  },
+
   kg: {
-    label: "Kg",
+    label: "Kilograms (Kg)",
     dimension: "weight",
     factor: 1000,
   },
 
-  g: {
-    label: "g",
+  lb: {
+    label: "Pounds (lb)",
     dimension: "weight",
+    factor: 453.59237,
+  },
+
+  meters: {
+    label: "Meters (m)",
+    dimension: "length",
     factor: 1,
+  },
+
+  kilometers: {
+    label: "Kilometers (Km)",
+    dimension: "length",
+    factor: 1000,
+  },
+
+  miles: {
+    label: "Miles (mi)",
+    dimension: "length",
+    factor: 1609.344,
   },
 };
 

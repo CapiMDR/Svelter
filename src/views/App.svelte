@@ -36,14 +36,6 @@
   let editingDay = null; // which day is currently being edited for alias
   let aliasInput = "";
 
-  function toggleDaySelection(day) {
-    if (selectedDays.includes(day)) {
-      selectedDays = selectedDays.filter((d) => d !== day);
-    } else {
-      selectedDays = [...selectedDays, day];
-    }
-  }
-
   async function requestDeleteWorkout(workout) {
     if (!workout) return;
     confirmModal("Deleting " + workout.name, `Do you want to delete ${workout.name} from ${workout.day}?`, () => deleteWorkout(workout));
@@ -77,6 +69,7 @@
   function startRoutine() {
     routineStore.start();
     showWorkoutForm = false;
+    scrollToTop();
   }
 
   function pauseRoutine() {
@@ -184,7 +177,7 @@
     </div>
   {/if}
   {#if $routineStore.state === RoutineState.STOPPED && showWorkoutForm}
-    <WorkoutForm {days} {viewedDay} bind:selectedDays {workoutToEdit} {toggleDaySelection} {startRoutine} {closeWorkoutForm} />
+    <WorkoutForm {days} {viewedDay} bind:selectedDays {workoutToEdit} {startRoutine} {closeWorkoutForm} />
   {/if}
   <div class="workouts-section" transition:fade={{ y: -20, duration: 250 }}>
     {#if $routineStore.state === RoutineState.STOPPED && showWorkoutForm === false}

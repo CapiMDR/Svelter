@@ -16,10 +16,10 @@
     reps: 15,
     sets: 3,
     unit: "none",
-    value: 0,
+    value: 1,
   };
 
-  let { days, viewedDay, selectedDays = $bindable(), workoutToEdit, toggleDaySelection, startRoutine, closeWorkoutForm } = $props();
+  let { days, viewedDay, selectedDays = $bindable(), workoutToEdit, startRoutine, closeWorkoutForm } = $props();
   let workoutForm = $state({ ...defaultWorkoutForm });
   const displayAmount = $derived(fromBase(workoutForm.value ?? 0, workoutForm.unit));
 
@@ -91,6 +91,14 @@
 
     return Object.entries(UNITS).filter(([_, unit]) => unit.dimension === dimension);
   });
+
+  function toggleDaySelection(day) {
+    if (selectedDays.includes(day)) {
+      selectedDays = selectedDays.filter((d) => d !== day);
+    } else {
+      selectedDays = [...selectedDays, day];
+    }
+  }
 
   function handleUnitChange(newUnit) {
     workoutForm.unit = newUnit;

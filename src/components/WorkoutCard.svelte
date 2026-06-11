@@ -10,8 +10,8 @@
   import { formatDifference } from "../lib/units.js";
 
   let completedSets = $state(0);
-  let createdDate = $state("");
-  let updatedDate = $state("");
+  let createdDateString = $state("");
+  let updatedDateString = $state("");
 
   const unitDifference = $derived.by(() => {
     if (workout.originalValue == null || workout.originalUnit == null) {
@@ -37,14 +37,14 @@
   const setDiffString = $derived(setDiff > 0 ? "+ " + setDiff : setDiff < 0 ? "" + setDiff : undefined);
 
   $effect(() => {
-    createdDate = new Date(workout.createdAt).toLocaleDateString(undefined, {
+    createdDateString = new Date(workout.createdAt).toLocaleDateString(undefined, {
       month: "short",
       day: "numeric",
       year: "numeric",
     });
 
     if (workout.lastUpdated != null) {
-      updatedDate = new Date(workout.lastUpdated).toLocaleDateString(undefined, {
+      updatedDateString = new Date(workout.lastUpdated).toLocaleDateString(undefined, {
         month: "short",
         day: "numeric",
         year: "numeric",
@@ -112,11 +112,11 @@
       {/if}
       <div class="card-footer">
         <span class="created-date">
-          {"Added: " + createdDate}
+          {"Added: " + createdDateString}
         </span>
-        {#if updatedDate != ""}
+        {#if updatedDateString != ""}
           <span class="created-date">
-            {"Last edited: " + updatedDate}
+            {"Last edited: " + updatedDateString}
           </span>
         {/if}
       </div>

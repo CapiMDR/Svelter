@@ -1,8 +1,9 @@
 // @ts-nocheck
 import { writable } from "svelte/store";
 
-import { getAllWorkouts, getWorkoutsByDay, addWorkoutToDays, deleteWorkoutById, swapWorkoutPositions, editWorkout } from "../workoutService.js";
+import { getAllWorkouts, getWorkoutsByDay, addWorkoutToDays, deleteWorkoutById, swapWorkoutPositions, editWorkout } from "../db/workoutService.js";
 
+// Used to sort workouts by day when viewing all workouts.
 const DAY_ORDER = {
   Monday: 0,
   Tuesday: 1,
@@ -14,12 +15,16 @@ const DAY_ORDER = {
 };
 
 function createWorkoutStore() {
+  // Store state
   const { subscribe, update } = writable({
     workouts: [],
     groupedWorkouts: [],
     totalWorkouts: 0,
   });
 
+  /**
+   * Loads workouts for a specific day or all days.
+   */
   async function load(day) {
     if (day === "All") {
       return loadAllDays();
@@ -28,6 +33,10 @@ function createWorkoutStore() {
     return loadDay(day);
   }
 
+  /**
+   * Loads every workout, sorts them by day and position,
+   * then groups them for display.
+   */
   async function loadAllDays() {
     const workouts = sortWorkoutsByDay(await getAllWorkouts());
 
@@ -38,6 +47,9 @@ function createWorkoutStore() {
     }));
   }
 
+  /**
+   * Loads workouts for a single day and sorts them by position.
+   */
   async function loadDay(day) {
     const workouts = sortWorkouts(await getWorkoutsByDay(day));
 
@@ -48,10 +60,17 @@ function createWorkoutStore() {
     }));
   }
 
+  /**
+   * Sort workouts within a day by their position.
+   */
   function sortWorkouts(workouts) {
     return workouts.sort((a, b) => a.position - b.position);
   }
 
+  /**
+   * Sort workouts first by day of the week,
+   * then by position within that day.
+   */
   function sortWorkoutsByDay(workouts) {
     return workouts.sort((a, b) => {
       const dayDiff = DAY_ORDER[a.day] - DAY_ORDER[b.day];
@@ -62,6 +81,10 @@ function createWorkoutStore() {
     });
   }
 
+  /**
+   * Groups workouts into arrays keyed by day.
+   * Returns an array of [day, workouts] entries.
+   */
   function groupWorkoutsByDay(workouts) {
     const groups = {
       Monday: [],
@@ -80,23 +103,39 @@ function createWorkoutStore() {
     return Object.entries(groups);
   }
 
+  /**
+   * Adds a workout to one or more days
+   * and reloads the current view.
+   */
   async function add(workoutData, days, currentViewDay) {
     await addWorkoutToDays(workoutData, days);
 
     await load(currentViewDay);
   }
 
+  /**
+   * Removes a workout and reloads the current view.
+   */
   async function remove(workout, currentViewDay) {
     await deleteWorkoutById(workout);
 
     await load(currentViewDay);
   }
 
+  /**
+   * Moves a workout up or down within its day.
+   * Swaps positions with the adjacent workout.
+   *
+   * direction:
+   *  -1 = move up
+   *   1 = move down
+   */
   async function swap(movedWorkout, direction, currentViewDay) {
-    const dayWorkouts = sortWorkoutsByDay(await getAllWorkouts());
+    const dayWorkouts = sortWorkouts(await getWorkoutsByDay(movedWorkout.day));
 
     const newPosition = movedWorkout.position + direction;
 
+    // Prevent moving beyond list bounds.
     if (newPosition < 0 || newPosition >= dayWorkouts.length) {
       return;
     }
@@ -115,6 +154,9 @@ function createWorkoutStore() {
     await load(currentViewDay);
   }
 
+  /**
+   * Updates an existing workout and reloads the current view.
+   */
   async function edit(workout, newData, currentViewDay) {
     await editWorkout(workout, newData);
 
@@ -131,4 +173,5 @@ function createWorkoutStore() {
   };
 }
 
+// Singleton workout store used throughout the app.
 export const workoutStore = createWorkoutStore();

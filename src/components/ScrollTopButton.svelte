@@ -33,6 +33,6 @@
   }
 
   .btn-scroll.stick-higher {
-    top: 100px;
+    top: 110px;
   }
 </style>

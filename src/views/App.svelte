@@ -1,6 +1,7 @@
 <script>
   // @ts-nocheck
   import { onMount } from "svelte";
+  import { derived } from "svelte/store";
   import { fly, fade } from "svelte/transition";
 
   import { workoutStore } from "../lib/stores/workoutStore.js";
@@ -8,10 +9,10 @@
   import { toastStore } from "../lib/stores/toastStore.js";
   import { routineStore, RoutineState } from "../lib/stores/routineStore.js";
   import { dayAliasStore } from "../lib/stores/dayAliasStore.js";
+  import { settingsStore } from "../lib/stores/settingsStore.js";
 
   import WorkoutCard from "../components/WorkoutCard.svelte";
   import NavBar from "../components/NavBar.svelte";
-  import Timer from "../components/Timer.svelte";
   import Stat from "../components/Stat.svelte";
   import Modal from "../components/Modal.svelte";
   import ToastContainer from "../components/ToastContainer.svelte";
@@ -26,15 +27,53 @@
 
   // Data states
   const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday", "All"];
+  const workoutDays = days.filter((day) => day !== "All");
 
   onMount(() => {
     workoutStore.load(viewedDay);
     dayAliasStore.load();
+    settingsStore.load();
+
+    const unsubscribe = derived(
+      [routineStore, settingsStore],
+      ([$routine, $settings]) => ($routine.state === RoutineState.RUNNING || $routine.state === RoutineState.PAUSED) && $settings.wakeLockEnabled,
+    ).subscribe((shouldKeepScreenAwake) => {
+      if (shouldKeepScreenAwake) requestWakeLock();
+      else releaseWakeLock();
+    });
+
+    return () => {
+      unsubscribe();
+      releaseWakeLock();
+    };
   });
 
   let showWorkoutForm = false; // Whether the form for adding a workout is open or not
   let editingDay = null; // which day is currently being edited for alias
   let aliasInput = "";
+  let swappingDay = null;
+  let swapTargetDay = null;
+  let wakeLock = null;
+
+  async function requestWakeLock() {
+    if (wakeLock || !navigator.wakeLock) return;
+
+    try {
+      wakeLock = await navigator.wakeLock.request("screen");
+      wakeLock.addEventListener("release", () => {
+        wakeLock = null;
+      });
+    } catch {
+      wakeLock = null;
+    }
+  }
+
+  async function releaseWakeLock() {
+    if (!wakeLock) return;
+
+    await wakeLock.release();
+    wakeLock = null;
+  }
 
   async function requestDeleteWorkout(workout) {
     if (!workout) return;
@@ -50,6 +89,38 @@
     await workoutStore.swap(movedWorkout, direction, viewedDay);
   }
 
+  function handleViewedDayChange() {
+    workoutStore.load(viewedDay);
+  }
+
+  function openDaySwap(day) {
+    swappingDay = day;
+    swapTargetDay = workoutDays.find((otherDay) => otherDay !== day);
+  }
+
+  function cancelDaySwap() {
+    swappingDay = null;
+    swapTargetDay = null;
+  }
+
+  function requestDaySwap(day) {
+    if (!swapTargetDay || swapTargetDay === day) return;
+
+    confirmModal(
+      `Swap ${day} and ${swapTargetDay}`,
+      `Move the schedule for ${day} to ${swapTargetDay}, and the schedule for ${swapTargetDay} to ${day}?`,
+      () => swapDayWorkouts(day, swapTargetDay),
+      "Swap",
+    );
+  }
+
+  async function swapDayWorkouts(firstDay, secondDay) {
+    await workoutStore.swapDays(firstDay, secondDay, viewedDay);
+    await dayAliasStore.load();
+    cancelDaySwap();
+    toastStore.success(`Workouts for ${firstDay} and ${secondDay} swapped`);
+  }
+
   function handleEditClick(workout) {
     showWorkoutForm = true;
     workoutToEdit = workout;
@@ -60,9 +131,10 @@
     modalStore.show({
       title,
       content,
-      closeText: "Cancel",
-      acceptText: "Confirm",
+      closeText,
+      acceptText,
       onAccept,
+      onClose,
     });
   }
 
@@ -70,6 +142,12 @@
     routineStore.start();
     showWorkoutForm = false;
     scrollToTop();
+  }
+
+  async function startRoutineForDay(day) {
+    viewedDay = day;
+    await workoutStore.load(day);
+    startRoutine();
   }
 
   function pauseRoutine() {
@@ -156,7 +234,7 @@
       </div>
       <div class="form-group">
         <label for="days">View a day</label>
-        <select id="days" bind:value={viewedDay} onchange={() => workoutStore.load(viewedDay)}>
+        <select id="days" bind:value={viewedDay} onchange={handleViewedDayChange}>
           {#each days as day}
             <option value={day}>{day}</option>
           {/each}
@@ -167,10 +245,6 @@
               <span class="material-icons">play_arrow</span>
               {$dayAliasStore[viewedDay] == undefined ? "Start Routine" : "Start " + $dayAliasStore[viewedDay]}
             </button>
-          {:else}
-            <div class="day-selection-warning" transition:fade={{ y: -20, duration: 250 }}>
-              Viewing all workouts. View a specific day to start its routine.
-            </div>
           {/if}
         {/if}
       </div>
@@ -182,7 +256,7 @@
   <div class="workouts-section" transition:fade={{ y: -20, duration: 250 }}>
     {#if $routineStore.state === RoutineState.STOPPED && showWorkoutForm === false}
       <div class="form-group">
-        <button class="btn-create" onclick={() => openWorkoutForm(viewedDay)}> <span class="material-icons">add</span> Add workout </button>
+        <button class="btn-create" onclick={() => openWorkoutForm(viewedDay)}> <span class="material-icons">add</span> Add element </button>
       </div>
     {/if}
     {#if $workoutStore.workouts.length === 0}
@@ -196,13 +270,27 @@
         {#each $workoutStore.groupedWorkouts as [day, dayWorkouts]}
           <div class="day-group">
             <div class="day-header">
-              <div class="day-title">
-                <Stat label={day} value={$dayAliasStore[day]} />
-                {#if $routineStore.state != RoutineState.RUNNING}
-                  {#if editingDay !== day}
-                    <button class="btn-edit" onclick={() => openAliasEditor(day)}> ✏️ </button>
+              <div class="day-header-row">
+                <div class="day-title">
+                  <Stat label={day} value={$dayAliasStore[day]} />
+                </div>
+                <div class="day-actions">
+                  {#if $routineStore.state != RoutineState.RUNNING}
+                    {#if editingDay !== day}
+                      <button class="btn-edit" onclick={() => openAliasEditor(day)}> ✏️ </button>
+                    {/if}
+                    {#if swappingDay !== day}
+                      <button
+                        class="btn-edit"
+                        onclick={() => openDaySwap(day)}
+                        title={`Swap ${day}'s workouts`}
+                        aria-label={`Swap ${day}'s workouts`}
+                      >
+                        <span class="material-icons">swap_horiz</span>
+                      </button>
+                    {/if}
                   {/if}
-                {/if}
+                </div>
               </div>
 
               {#if editingDay === day}
@@ -217,7 +305,30 @@
                   <button class="button danger" onclick={cancelAlias}> Cancel </button>
                 </div>
               {/if}
+
+              {#if swappingDay === day}
+                <div class="day-swap-controls" transition:fade={{ y: -20, duration: 250 }}>
+                  <label for={`swap-day-${day}`}>Swap all workouts with</label>
+                  <select id={`swap-day-${day}`} bind:value={swapTargetDay}>
+                    {#each workoutDays.filter((otherDay) => otherDay !== day) as otherDay}
+                      <option value={otherDay}>{otherDay}</option>
+                    {/each}
+                  </select>
+                  <button class="button accept" onclick={() => requestDaySwap(day)}> Swap workouts </button>
+                  <button class="button danger" onclick={cancelDaySwap}> Cancel </button>
+                </div>
+              {/if}
             </div>
+
+            <button
+              class="btn-start-day btn-start-day-list"
+              onclick={() => startRoutineForDay(day)}
+              disabled={dayWorkouts.length === 0}
+              title={`Start ${day}'s routine`}
+            >
+              <span class="material-icons">play_arrow</span>
+              Start
+            </button>
 
             {#if dayWorkouts.length > 0}
               {#each dayWorkouts as workout (workout.id)}
@@ -391,11 +502,43 @@
     align-items: center;
   }
 
+  .day-header-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    align-items: center;
+    width: 70%;
+    margin-bottom: var(--spacing-sm);
+  }
+
   .day-title {
     display: flex;
     align-items: center;
     justify-content: center;
     gap: 0.5rem;
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .day-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--spacing-xs);
+    grid-column: 3;
+    grid-row: 1;
+  }
+
+  .btn-start-day {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    padding: var(--spacing-xs) var(--spacing-sm);
+    color: var(--bg-dark);
+    background: linear-gradient(135deg, var(--color-success), var(--color-accent-primary));
+    font-size: var(--font-size-sm);
+    width: 100%;
+  }
+
+  .btn-start-day-list {
     margin-bottom: var(--spacing-sm);
   }
 
@@ -425,6 +568,10 @@
       flex-direction: column;
       align-items: center;
       gap: 6px;
+    }
+
+    .day-header-row {
+      gap: var(--spacing-xs);
     }
 
     .alias-editor {
@@ -470,7 +617,24 @@
     box-shadow: 0 0 25px rgba(0, 255, 136, 0.4);
   }
 
-  .day-selection-warning {
+  .day-swap-controls {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: var(--spacing-sm);
+    align-items: center;
+    margin-bottom: var(--spacing-md);
+    flex-direction: column;
+    align-items: stretch;
+    width: 80%;
+  }
+
+  .day-swap-controls label {
+    width: 100%;
+    text-align: center;
+  }
+
+  /*.day-selection-warning {
     padding: var(--spacing-md);
     text-align: center;
     color: var(--text-secondary);
@@ -478,7 +642,7 @@
     border: 1px dashed var(--color-accent-primary);
     border-radius: var(--radius-md);
     margin-top: var(--spacing-sm);
-  }
+  }*/
 
   @media (max-width: 768px) {
     .app-container {

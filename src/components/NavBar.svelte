@@ -1,16 +1,20 @@
 <script>
   import Clock from "./Clock.svelte";
+  import SettingsMenu from "./SettingsMenu.svelte";
 </script>
 
 <nav class="navbar">
-  <div class="version">v2.5.5</div>
+  <div class="version">v2.6.0</div>
   <div class="navbar-content">
     <div class="navbar-brand">
       <span class="icon">💪</span>
       <h1 class="title">Svelter</h1>
     </div>
-    <div class="navbar-time">
-      <Clock />
+    <div class="navbar-actions">
+      <div class="navbar-time">
+        <Clock />
+      </div>
+      <SettingsMenu />
     </div>
   </div>
 </nav>
@@ -24,7 +28,7 @@
     box-shadow: var(--shadow-md);
     position: sticky;
     top: 0;
-    z-index: 100;
+    z-index: 300;
   }
 
   .version {
@@ -76,6 +80,12 @@
     text-align: right;
   }
 
+  .navbar-actions {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-md);
+  }
+
   @media (max-width: 640px) {
     .navbar-content {
       flex-direction: column;
@@ -86,8 +96,13 @@
       width: 100%;
     }
 
+    .navbar-actions,
     .navbar-time {
       width: 100%;
+    }
+
+    .navbar-actions {
+      justify-content: space-between;
     }
 
     .title {

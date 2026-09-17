@@ -1,7 +1,15 @@
 // @ts-nocheck
 import { writable } from "svelte/store";
 
-import { getAllWorkouts, getWorkoutsByDay, addWorkoutToDays, deleteWorkoutById, swapWorkoutPositions, editWorkout } from "../db/workoutService.js";
+import {
+  getAllWorkouts,
+  getWorkoutsByDay,
+  addWorkoutToDays,
+  deleteWorkoutById,
+  moveWorkoutPosition,
+  swapWorkoutsBetweenDays,
+  editWorkout,
+} from "../db/workoutService.js";
 
 // Used to sort workouts by day when viewing all workouts.
 const DAY_ORDER = {
@@ -131,25 +139,16 @@ function createWorkoutStore() {
    *   1 = move down
    */
   async function swap(movedWorkout, direction, currentViewDay) {
-    const dayWorkouts = sortWorkouts(await getWorkoutsByDay(movedWorkout.day));
+    await moveWorkoutPosition(movedWorkout.id, movedWorkout.day, direction);
 
-    const newPosition = movedWorkout.position + direction;
+    await load(currentViewDay);
+  }
 
-    // Prevent moving beyond list bounds.
-    if (newPosition < 0 || newPosition >= dayWorkouts.length) {
-      return;
-    }
-
-    const otherWorkout = dayWorkouts.find((w) => w.position === newPosition);
-
-    if (!otherWorkout) return;
-
-    const oldPosition = movedWorkout.position;
-
-    movedWorkout.position = newPosition;
-    otherWorkout.position = oldPosition;
-
-    await swapWorkoutPositions(movedWorkout, otherWorkout);
+  /**
+   * Exchanges every workout assigned to two days and reloads the current view.
+   */
+  async function swapDays(firstDay, secondDay, currentViewDay) {
+    await swapWorkoutsBetweenDays(firstDay, secondDay);
 
     await load(currentViewDay);
   }
@@ -169,6 +168,7 @@ function createWorkoutStore() {
     add,
     remove,
     swap,
+    swapDays,
     edit,
   };
 }

@@ -1,6 +1,6 @@
 <script>
   // @ts-nocheck
-  import Timer from "./Timer.svelte";
+  import Cronometer from "./Cronometer.svelte";
   import ProgressBar from "./ProgressBar.svelte";
   import { routineStore, RoutineState } from "../lib/stores/routineStore.js";
   import { fly } from "svelte/transition";
@@ -9,7 +9,7 @@
 </script>
 
 <div class="running-timer-section" class:completed={completed === total} transition:fly={{ y: -20, duration: 100 }}>
-  <Timer timerState={$routineStore.state} />
+  <Cronometer timerState={$routineStore.state} />
 
   <div class="progress-section">
     <div class="progress-label">

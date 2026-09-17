@@ -7,7 +7,8 @@
   import { fromBase, toBase, UNITS } from "../lib/units.js";
 
   $effect(() => {
-    workoutForm = workoutToEdit ? { ...workoutToEdit } : { ...defaultWorkoutForm };
+    workoutForm = workoutToEdit ? { ...defaultWorkoutForm, ...workoutToEdit } : { ...defaultWorkoutForm };
+    elementType = workoutToEdit?.type ?? "workout";
   });
 
   // Form fields for adding a workout
@@ -17,14 +18,16 @@
     sets: 3,
     unit: "none",
     value: 1,
+    notes: "",
   };
 
   let { days, viewedDay, selectedDays = $bindable(), workoutToEdit, startRoutine, closeWorkoutForm } = $props();
   let workoutForm = $state({ ...defaultWorkoutForm });
+  let elementType = $state("workout");
   const displayAmount = $derived(fromBase(workoutForm.value ?? 0, workoutForm.unit));
 
   async function handleSubmit() {
-    if (!isValidWorkout()) {
+    if (!isValidElement()) {
       toastStore.info("Name and day required");
       return;
     }
@@ -39,21 +42,24 @@
   async function addWorkout() {
     await workoutStore.add(
       {
-        name: workoutForm.name,
+        name: elementType === "break" ? "Break" : workoutForm.name,
         reps: workoutForm.reps,
         sets: workoutForm.sets,
         unit: workoutForm.unit,
         value: workoutForm.value,
+        notes: workoutForm.notes,
+        type: elementType,
       },
       selectedDays,
       viewedDay,
     );
-    toastStore.success("Workout added");
+    toastStore.success(`${elementType === "break" ? "Break" : "Workout"} added`);
   }
 
-  function isValidWorkout() {
-    if (workoutForm.name == "") return false;
-    if (workoutForm.sets == null || workoutForm.reps == null) return false;
+  function isValidElement() {
+    if (elementType === "workout" && workoutForm.name == "") return false;
+    if (elementType === "workout" && (workoutForm.sets == null || workoutForm.reps == null)) return false;
+    if (elementType === "break" && (!workoutForm.value || workoutForm.value <= 0)) return false;
     if (selectedDays.length == 0) return false;
     return true;
   }
@@ -61,11 +67,13 @@
   async function editWorkout() {
     toastStore.success("Workout updated");
     const newData = {
-      name: workoutForm.name,
+      name: elementType === "break" ? "Break" : workoutForm.name,
       reps: workoutForm.reps,
       sets: workoutForm.sets,
       unit: workoutForm.unit,
       value: workoutForm.value,
+      notes: workoutForm.notes,
+      type: elementType,
     };
     await workoutStore.edit(workoutToEdit, newData, viewedDay);
   }
@@ -83,6 +91,10 @@
   }
 
   const availableUnits = $derived.by(() => {
+    if (elementType === "break") {
+      return Object.entries(UNITS).filter(([_, unit]) => unit.dimension === "time");
+    }
+
     if (!workoutToEdit) {
       return Object.entries(UNITS);
     }
@@ -104,6 +116,20 @@
     workoutForm.unit = newUnit;
   }
 
+  function handleElementTypeChange(newType) {
+    elementType = newType;
+
+    if (newType === "break") {
+      workoutForm.name = "Break";
+      workoutForm.reps = 1;
+      workoutForm.sets = 1;
+      workoutForm.unit = "minutes";
+      workoutForm.value = toBase(1, "minutes");
+    } else if (workoutForm.name === "Break") {
+      workoutForm.name = "";
+    }
+  }
+
   function updateDisplayAmount(amount) {
     workoutForm.value = toBase(amount, workoutForm.unit);
   }
@@ -111,10 +137,22 @@
 
 <div class="panel" transition:fly={{ y: -20, duration: 250 }}>
   <div class="form-grid">
-    <h2>{workoutToEdit ? "Editing Workout" : "Adding Workout"}</h2>
-    <div class="form-group">
-      <label for="workout-name">Workout name</label> <input id="workout-name" bind:value={workoutForm.name} placeholder="e.g. Bench Press" />
-    </div>
+    <h2>{workoutToEdit ? `Editing ${elementType === "break" ? "Break" : "Workout"}` : "Adding Element"}</h2>
+    {#if !workoutToEdit}
+      <div class="form-group">
+        <label for="element-type">Element type</label>
+        <select id="element-type" value={elementType} onchange={(event) => handleElementTypeChange(event.target.value)}>
+          <option value="workout">Workout</option>
+          <option value="break">Break</option>
+        </select>
+      </div>
+    {/if}
+    {#if elementType !== "break"}
+      <div class="form-group">
+        <label for="workout-name">Workout name</label>
+        <input id="workout-name" bind:value={workoutForm.name} placeholder="e.g. Bench Press" />
+      </div>
+    {/if}
     {#if !workoutToEdit}
       <div class="form-group"><label for="workout-name">Select days</label></div>
       <div class="day-selector">
@@ -123,8 +161,10 @@
         {/each}
       </div>
     {/if}
-    <div class="form-group"><NumberInput label="# Reps" bind:value={workoutForm.reps} integerOnly={true} /></div>
-    <div class="form-group"><NumberInput label="# Sets" bind:value={workoutForm.sets} integerOnly={true} /></div>
+    {#if elementType === "workout"}
+      <div class="form-group"><NumberInput label="# Reps" bind:value={workoutForm.reps} integerOnly={true} /></div>
+      <div class="form-group"><NumberInput label="# Sets" bind:value={workoutForm.sets} integerOnly={true} /></div>
+    {/if}
     <div class="form-group">
       <label for="units">Unit</label>
       <select id="units" bind:value={workoutForm.unit} onchange={(e) => handleUnitChange(e.target.value)}>
@@ -136,13 +176,17 @@
       </select>
     </div>
     {#if workoutForm.unit != "none"}
-      <NumberInput label="Amount" value={displayAmount} onchange={updateDisplayAmount} />
+      <NumberInput label={elementType === "break" ? "Duration" : "Amount"} value={displayAmount} onchange={updateDisplayAmount} />
     {/if}
+    <div class="form-group">
+      <label for="element-notes">Notes <span class="optional-label">(optional)</span></label>
+      <textarea id="element-notes" bind:value={workoutForm.notes} placeholder="Add notes for this element"></textarea>
+    </div>
   </div>
   <div class="button-row" transition:fly={{ y: -20, duration: 250 }}>
     <button class="btn-primary" onclick={handleSubmit}>
       <span class="material-icons"> {workoutToEdit ? "edit" : "add"} </span>
-      {workoutToEdit ? "Save Changes" : "Add Workout"}
+      {workoutToEdit ? "Save Changes" : `Add ${elementType === "break" ? "Break" : "Workout"}`}
     </button> <button class="btn-danger secondary" onclick={handleClose}> <span class="material-icons">close</span> Cancel </button>
   </div>
 </div>
@@ -164,6 +208,17 @@
     display: flex;
     gap: var(--spacing-md);
     flex-wrap: wrap;
+  }
+
+  textarea {
+    min-height: 84px;
+    resize: vertical;
+  }
+
+  .optional-label {
+    color: var(--text-tertiary);
+    font-weight: 400;
+    text-transform: none;
   }
 
   .btn-primary {

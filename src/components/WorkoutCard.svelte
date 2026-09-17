@@ -2,8 +2,9 @@
   import Stat from "./Stat.svelte";
   import WorkoutProgressStat from "./WorkoutProgressStat.svelte";
   import ProgressBar from "./ProgressBar.svelte";
+  import Countdown from "./Countdown.svelte";
   import { fade } from "svelte/transition";
-  import { getDisplayValue } from "../lib/units.js";
+  import { getDisplayValue, UNITS } from "../lib/units.js";
   import { routineStore, RoutineState } from "../lib/stores/routineStore.js";
 
   let { workout, deleteWorkout, editWorkout, changePosition, updateWorkoutCompletion, totalWorkouts } = $props();
@@ -12,6 +13,9 @@
   let completedSets = $state(0);
   let createdDateString = $state("");
   let updatedDateString = $state("");
+  const isBreak = $derived(workout.type === "break");
+  const breakUnitLabel = $derived(Object.entries(UNITS).find(([id]) => id === workout.unit)?.[1].label ?? workout.unit);
+  const hasTimeUnit = $derived(Object.entries(UNITS).some(([id, unit]) => id === workout.unit && unit.dimension === "time"));
 
   const unitDifference = $derived.by(() => {
     if (workout.originalValue == null || workout.originalUnit == null) {
@@ -71,32 +75,47 @@
   });
 </script>
 
-<div class="workout-card" class:completed={completedSets === workout.sets} transition:fade={{ duration: 250 }}>
+<div class="workout-card" class:break-card={isBreak} class:completed={completedSets === workout.sets} transition:fade={{ duration: 250 }}>
   <div class="card-content">
     <div class="card-header">
       <div class="card-title">
         <span class="position-badge">{workout.position + 1}</span>
-        <h3>{workout.name}</h3>
+        {#if !isBreak}
+          <h3>{workout.name}</h3>
+        {/if}
+        {#if isBreak}
+          <span class="element-type">Break</span>
+        {/if}
       </div>
     </div>
 
     <div class="card-body">
-      <div class="stats-row" class:has-unit={workout.unit !== "none"}>
-        <Stat label={"Reps"} value={workout.reps} delta={$routineStore.state != RoutineState.STOPPED ? undefined : repDiffString} />
-        <Stat label={"Set"} value={workout.sets} delta={$routineStore.state != RoutineState.STOPPED ? undefined : setDiffString} />
-        {#if workout.unit !== "none"}
-          <Stat
-            label={workout.unit}
-            value={getDisplayValue(workout)}
-            delta={$routineStore.state != RoutineState.STOPPED ? undefined : unitDiffString}
-          />
-        {/if}
-        {#if $routineStore.state != RoutineState.STOPPED}
-          <WorkoutProgressStat type={"Done"} completed={completedSets} total={workout.sets} />
-        {/if}
-      </div>
+      {#if !isBreak || $routineStore.state === RoutineState.STOPPED}
+        <div class="stats-row" class:has-unit={workout.unit !== "none"}>
+          {#if isBreak}
+            <Stat label={breakUnitLabel} value={`${getDisplayValue(workout)}`} />
+          {:else}
+            <Stat label={"Reps"} value={workout.reps} delta={$routineStore.state != RoutineState.STOPPED ? undefined : repDiffString} />
+            <Stat label={"Set"} value={workout.sets} delta={$routineStore.state != RoutineState.STOPPED ? undefined : setDiffString} />
+            {#if workout.unit !== "none"}
+              <Stat
+                label={workout.unit}
+                value={getDisplayValue(workout)}
+                delta={$routineStore.state != RoutineState.STOPPED ? undefined : unitDiffString}
+              />
+            {/if}
+            {#if $routineStore.state != RoutineState.STOPPED}
+              <WorkoutProgressStat type={"Done"} completed={completedSets} total={workout.sets} />
+            {/if}
+          {/if}
+        </div>
+      {/if}
       {#if $routineStore.state != RoutineState.STOPPED}
-        <ProgressBar progress={completedSets} total={workout.sets} />
+        {#if hasTimeUnit}
+          <Countdown duration={workout.value} timerState={$routineStore.state} />
+        {:else}
+          <ProgressBar progress={completedSets} total={workout.sets} />
+        {/if}
         <div class="button-group">
           <button class="btn-adjust" onclick={() => uncompleteSet()} disabled={completedSets === 0 || $routineStore.state == RoutineState.PAUSED}>
             <span class="material-icons">remove</span>
@@ -109,6 +128,12 @@
             <span class="material-icons">add</span>
           </button>
         </div>
+        {#if workout.notes?.trim()}
+          <div class="workout-notes">
+            <span class="material-icons">notes</span>
+            <span>{workout.notes}</span>
+          </div>
+        {/if}
       {/if}
       <div class="card-footer">
         <span class="created-date">
@@ -174,6 +199,18 @@
     border-color: rgba(0, 255, 136, 0.3);
     background: linear-gradient(135deg, rgba(0, 255, 136, 0.08) 0%, rgba(0, 212, 255, 0.06) 100%);
     box-shadow: 0 0 24px rgba(0, 255, 136, 0.16);
+  }
+
+  .workout-card.break-card {
+    border-color: rgba(0, 212, 255, 0.35);
+  }
+
+  .element-type {
+    color: var(--color-accent-primary);
+    font-size: var(--font-size-xs);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
   }
 
   .workout-card:hover {
@@ -266,6 +303,23 @@
     display: inline-flex;
     gap: var(--spacing-xs);
     width: 100%;
+  }
+
+  .workout-notes {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--spacing-xs);
+    padding: var(--spacing-sm);
+    border-radius: var(--radius-sm);
+    background: rgba(0, 212, 255, 0.06);
+    color: var(--text-secondary);
+    font-size: var(--font-size-sm);
+    white-space: pre-wrap;
+  }
+
+  .workout-notes .material-icons {
+    color: var(--color-accent-primary);
+    font-size: 1.1rem;
   }
 
   .btn-adjust {

@@ -8,6 +8,37 @@ Svelter is an offline-first Progressive Web App (PWA) designed to help users man
 
 ---
 
+## Screenshots
+
+### Routine management
+
+<table>
+  <tr>
+    <td align="center" width="33%">
+      <img src="docs/empty-day.PNG" alt="Empty day" width="220">
+    </td>
+    <td align="center" width="33%">
+      <img src="docs/week-workouts.PNG" alt="Week workouts" width="220">
+    </td>
+    <td align="center" width="33%">
+      <img src="docs/create-element.PNG" alt="Create element" width="220">
+    </td>
+  </tr>
+</table>
+
+### Active routines
+
+<table>
+  <tr>
+    <td align="center" width="50%">
+      <img src="docs/active-routine.PNG" alt="Active routine" width="260">
+    </td>
+    <td align="center" width="50%">
+      <img src="docs/completed-routine.PNG" alt="Completed routine" width="260">
+    </td>
+  </tr>
+</table>
+
 ## Features
 
 ### Workout Tracking

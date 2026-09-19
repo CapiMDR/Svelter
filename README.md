@@ -39,6 +39,8 @@ Svelter is an offline-first Progressive Web App (PWA) designed to help users man
   </tr>
 </table>
 
+---
+
 ## Features
 
 ### Workout Tracking

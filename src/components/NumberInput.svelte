@@ -11,12 +11,25 @@
     onchange(value);
   }
 
-  function handleInput() {
-    if (integerOnly) {
-      value = parseInt(value, 10) || min;
+  function handleInput(event) {
+    const rawValue = event.currentTarget.value;
+    if (rawValue === "") return;
+
+    const nextValue = integerOnly ? parseInt(rawValue, 10) : Number(rawValue);
+    if (!Number.isFinite(nextValue)) return;
+
+    value = Math.max(min, Math.min(max, nextValue));
+    onchange(value);
+  }
+
+  function validateFinalValue(event) {
+    if (event.currentTarget.value === "") {
+      value = min;
+      onchange(value);
+      return;
     }
-    value = Math.max(min, Math.min(max, Number(value)));
-    onchange(Number(value));
+
+    handleInput(event);
   }
 </script>
 
@@ -28,7 +41,7 @@
   <div class="number-input">
     <button type="button" class="step-btn" onclick={decrement} aria-label="Decrease"> − </button>
 
-    <input id="value" bind:value type="number" {min} {max} {step} oninput={handleInput} />
+    <input id="value" bind:value type="number" {min} {max} {step} oninput={handleInput} onblur={validateFinalValue} />
 
     <button type="button" class="step-btn" onclick={increment} aria-label="Increase"> + </button>
   </div>

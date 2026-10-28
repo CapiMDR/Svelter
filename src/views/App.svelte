@@ -10,6 +10,7 @@
   import { routineStore, RoutineState } from "../lib/stores/routineStore.js";
   import { dayAliasStore } from "../lib/stores/dayAliasStore.js";
   import { settingsStore } from "../lib/stores/settingsStore.js";
+  import { sessionStore } from "../lib/stores/sessionStore.js";
 
   import WorkoutCard from "../components/WorkoutCard.svelte";
   import NavBar from "../components/NavBar.svelte";
@@ -19,11 +20,13 @@
   import RoutineHeader from "../components/RoutineHeader.svelte";
   import ScrollTopButton from "../components/ScrollTopButton.svelte";
   import WorkoutForm from "../components/WorkoutForm.svelte";
+  import StatisticsView from "./StatisticsView.svelte";
 
   const today = new Intl.DateTimeFormat("en-US", { weekday: "long" }).format(new Date());
   let viewedDay = today; // Day that is being viewed by the user, defaults to current day
   let workoutToEdit = null; // null = adding, workout object = editing that workout
   let selectedDays = [today];
+  let activeView = "workouts";
 
   // Data states
   const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday", "All"];
@@ -139,6 +142,11 @@
   }
 
   function startRoutine() {
+    sessionStore.start({
+      workouts: $workoutStore.workouts,
+      scheduledDay: viewedDay,
+      routineName: $dayAliasStore[viewedDay] ?? viewedDay,
+    });
     routineStore.start();
     showWorkoutForm = false;
     scrollToTop();
@@ -154,15 +162,27 @@
     routineStore.togglePause();
   }
 
-  function updateWorkoutCompletion(delta) {
+  function updateWorkoutCompletion(workoutId, completedSets, delta) {
+    sessionStore.updateCompletedSets(workoutId, completedSets);
     routineStore.updateProgress(delta, $workoutStore.totalWorkouts);
   }
 
-  function requestEndRoutine() {
-    confirmModal("Complete routine", "Are you ready to complete the routine?", () => endRoutine());
+  function updateBreakDuration(workoutId, seconds) {
+    sessionStore.updateBreakDuration(workoutId, seconds);
   }
 
-  function endRoutine() {
+  function requestEndRoutine() {
+    const isComplete = $routineStore.completedWorkouts === $workoutStore.totalWorkouts;
+    const title = isComplete ? "Complete routine" : "Save partial routine";
+    const content = isComplete
+      ? "Are you ready to complete and save the routine?"
+      : "Save your current progress as a partial routine? Skipped exercises will be included in the session history.";
+    confirmModal(title, content, () => endRoutine(), isComplete ? "Complete" : "Save progress");
+  }
+
+  async function endRoutine() {
+    const status = $routineStore.completedWorkouts === $workoutStore.totalWorkouts ? "completed" : "partial";
+    await sessionStore.finish(status);
     routineStore.reset();
 
     scrollToTop();
@@ -174,6 +194,7 @@
   }
 
   function cancelRoutine() {
+    sessionStore.cancel();
     routineStore.reset();
     scrollToTop();
   }
@@ -213,163 +234,190 @@
       behavior: "smooth",
     });
   }
+
+  function changeView(view) {
+    if ($routineStore.state !== RoutineState.STOPPED) return;
+    activeView = view;
+    scrollToTop();
+  }
+
+  async function refreshImportedData() {
+    await Promise.all([workoutStore.load(viewedDay), dayAliasStore.load()]);
+  }
 </script>
 
 <Modal />
-<NavBar />
+<NavBar {activeView} onViewChange={changeView} onDataImported={refreshImportedData} routineActive={$routineStore.state !== RoutineState.STOPPED} />
 <ToastContainer />
 <main class="app-container">
-  {#if $routineStore.state !== RoutineState.STOPPED}
-    <RoutineHeader completed={$routineStore.completedWorkouts} total={$workoutStore.totalWorkouts} onPause={pauseRoutine} />
-  {/if}
-  <ScrollTopButton stickHigher={$routineStore.state === RoutineState.STOPPED} {scrollToTop} />
-  {#if $routineStore.state === RoutineState.PAUSED}
-    <div class="pause-indicator" transition:fly={{ y: -20, duration: 250 }}>Paused</div>
-  {/if}
-  <div class="divider"></div>
-  {#if $routineStore.state === RoutineState.STOPPED}
-    <div class="panel" transition:fade={{ y: -20, duration: 250 }}>
-      <div class="section-header">
-        <h2>Routine for <span class="day-highlight">{viewedDay}</span></h2>
-      </div>
-      <div class="form-group">
-        <label for="days">View a day</label>
-        <select id="days" bind:value={viewedDay} onchange={handleViewedDayChange}>
-          {#each days as day}
-            <option value={day}>{day}</option>
-          {/each}
-        </select>
-        {#if !showWorkoutForm}
-          {#if viewedDay !== "All"}
-            <button onclick={startRoutine} class="btn-timer" disabled={$workoutStore.totalWorkouts <= 0} transition:fade={{ y: -20, duration: 250 }}>
-              <span class="material-icons">play_arrow</span>
-              {$dayAliasStore[viewedDay] == undefined ? "Start Routine" : "Start " + $dayAliasStore[viewedDay]}
-            </button>
-          {/if}
-        {/if}
-      </div>
-    </div>
-  {/if}
-  {#if $routineStore.state === RoutineState.STOPPED && showWorkoutForm}
-    <WorkoutForm {days} {viewedDay} bind:selectedDays {workoutToEdit} {startRoutine} {closeWorkoutForm} />
-  {/if}
-  <div class="workouts-section" transition:fade={{ y: -20, duration: 250 }}>
-    {#if $routineStore.state === RoutineState.STOPPED && showWorkoutForm === false}
-      <div class="form-group">
-        <button class="btn-create" onclick={() => openWorkoutForm(viewedDay)}> <span class="material-icons">add</span> Add element </button>
-      </div>
-    {/if}
-    {#if $workoutStore.workouts.length === 0}
-      <div class="empty-state" transition:fade={{ y: -20, duration: 250 }}>
-        <span class="empty-icon">🏋️</span>
-        <h3>No workouts yet</h3>
-        <p>Add a workout to get started!</p>
-      </div>
-    {:else if viewedDay === "All"}
-      <div class="workouts-container" transition:fade={{ y: -20, duration: 250 }}>
-        {#each $workoutStore.groupedWorkouts as [day, dayWorkouts]}
-          <div class="day-group">
-            <div class="day-header">
-              <div class="day-header-row">
-                <div class="day-title">
-                  <Stat label={day} value={$dayAliasStore[day]} />
-                </div>
-                <div class="day-actions">
-                  {#if $routineStore.state != RoutineState.RUNNING}
-                    {#if editingDay !== day}
-                      <button class="btn-edit" onclick={() => openAliasEditor(day)}> ✏️ </button>
-                    {/if}
-                    {#if swappingDay !== day}
-                      <button
-                        class="btn-edit"
-                        onclick={() => openDaySwap(day)}
-                        title={`Swap ${day}'s workouts`}
-                        aria-label={`Swap ${day}'s workouts`}
-                      >
-                        <span class="material-icons">swap_horiz</span>
-                      </button>
-                    {/if}
-                  {/if}
-                </div>
-              </div>
-
-              {#if editingDay === day}
-                <div class="alias-editor" transition:fade={{ y: -20, duration: 250 }}>
-                  <input
-                    class="alias-input"
-                    placeholder="Add a day alias. E.g. Leg day"
-                    bind:value={aliasInput}
-                    onkeydown={(e) => e.key === "Enter" && saveAlias(day)}
-                  />
-                  <button class="button accept" onclick={() => saveAlias(day)}> Save </button>
-                  <button class="button danger" onclick={cancelAlias}> Cancel </button>
-                </div>
-              {/if}
-
-              {#if swappingDay === day}
-                <div class="day-swap-controls" transition:fade={{ y: -20, duration: 250 }}>
-                  <label for={`swap-day-${day}`}>Swap all workouts with</label>
-                  <select id={`swap-day-${day}`} bind:value={swapTargetDay}>
-                    {#each workoutDays.filter((otherDay) => otherDay !== day) as otherDay}
-                      <option value={otherDay}>{otherDay}</option>
-                    {/each}
-                  </select>
-                  <button class="button accept" onclick={() => requestDaySwap(day)}> Swap workouts </button>
-                  <button class="button danger" onclick={cancelDaySwap}> Cancel </button>
-                </div>
-              {/if}
-            </div>
-
-            <button
-              class="btn-start-day btn-start-day-list"
-              onclick={() => startRoutineForDay(day)}
-              disabled={dayWorkouts.length === 0}
-              title={`Start ${day}'s routine`}
-            >
-              <span class="material-icons">play_arrow</span>
-              Start
-            </button>
-
-            {#if dayWorkouts.length > 0}
-              {#each dayWorkouts as workout (workout.id)}
-                <WorkoutCard
-                  selectedDay={viewedDay}
-                  {workout}
-                  deleteWorkout={requestDeleteWorkout}
-                  changePosition={swapWorkouts}
-                  {updateWorkoutCompletion}
-                  totalWorkouts={dayWorkouts.length}
-                  editWorkout={handleEditClick}
-                />
+  {#if activeView === "statistics"}
+    <StatisticsView />
+  {:else}
+    <div class="workouts-view" transition:fade={{ duration: 250 }}>
+      {#if $routineStore.state !== RoutineState.STOPPED}
+        <RoutineHeader completed={$routineStore.completedWorkouts} total={$workoutStore.totalWorkouts} onPause={pauseRoutine} />
+      {/if}
+      <ScrollTopButton stickHigher={$routineStore.state === RoutineState.STOPPED} {scrollToTop} />
+      {#if $routineStore.state === RoutineState.PAUSED}
+        <div class="pause-indicator" transition:fly={{ y: -20, duration: 250 }}>Paused</div>
+      {/if}
+      <div class="divider"></div>
+      {#if $routineStore.state === RoutineState.STOPPED}
+        <div class="panel" transition:fade={{ y: -20, duration: 250 }}>
+          <div class="section-header">
+            <h2>Routine for <span class="day-highlight">{viewedDay}</span></h2>
+          </div>
+          <div class="form-group">
+            <label for="days">View a day</label>
+            <select id="days" bind:value={viewedDay} onchange={handleViewedDayChange}>
+              {#each days as day}
+                <option value={day}>{day}</option>
               {/each}
-            {:else}
-              <div class="empty-day">No workouts scheduled, have a nice break!</div>
+            </select>
+            {#if !showWorkoutForm}
+              {#if viewedDay !== "All"}
+                <button
+                  onclick={startRoutine}
+                  class="btn-timer"
+                  disabled={$workoutStore.totalWorkouts <= 0}
+                  transition:fade={{ y: -20, duration: 250 }}
+                >
+                  <span class="material-icons">play_arrow</span>
+                  {$dayAliasStore[viewedDay] == undefined ? "Start Routine" : "Start " + $dayAliasStore[viewedDay]}
+                </button>
+              {/if}
             {/if}
           </div>
-        {/each}
+        </div>
+      {/if}
+      {#if $routineStore.state === RoutineState.STOPPED && showWorkoutForm}
+        <WorkoutForm {days} {viewedDay} bind:selectedDays {workoutToEdit} {startRoutine} {closeWorkoutForm} />
+      {/if}
+      <div class="workouts-section" transition:fade={{ y: -20, duration: 250 }}>
+        {#if $routineStore.state === RoutineState.STOPPED && showWorkoutForm === false}
+          <div class="form-group">
+            <button class="btn-create" onclick={() => openWorkoutForm(viewedDay)}> <span class="material-icons">add</span> Add element </button>
+          </div>
+        {/if}
+        {#if $workoutStore.workouts.length === 0}
+          <div class="empty-state" transition:fade={{ y: -20, duration: 250 }}>
+            <span class="empty-icon">🏋️</span>
+            <h3>No workouts yet</h3>
+            <p>Add a workout to get started!</p>
+          </div>
+        {:else if viewedDay === "All"}
+          <div class="workouts-container" transition:fade={{ y: -20, duration: 250 }}>
+            {#each $workoutStore.groupedWorkouts as [day, dayWorkouts]}
+              <div class="day-group">
+                <div class="day-header">
+                  <div class="day-header-row">
+                    <div class="day-title">
+                      <Stat label={day} value={$dayAliasStore[day]} />
+                    </div>
+                    <div class="day-actions">
+                      {#if $routineStore.state != RoutineState.RUNNING}
+                        {#if editingDay !== day}
+                          <button class="btn-edit" onclick={() => openAliasEditor(day)}> ✏️ </button>
+                        {/if}
+                        {#if swappingDay !== day}
+                          <button
+                            class="btn-edit"
+                            onclick={() => openDaySwap(day)}
+                            title={`Swap ${day}'s workouts`}
+                            aria-label={`Swap ${day}'s workouts`}
+                          >
+                            <span class="material-icons">swap_horiz</span>
+                          </button>
+                        {/if}
+                      {/if}
+                    </div>
+                  </div>
+
+                  {#if editingDay === day}
+                    <div class="alias-editor" transition:fade={{ y: -20, duration: 250 }}>
+                      <input
+                        class="alias-input"
+                        placeholder="Add a day alias. E.g. Leg day"
+                        bind:value={aliasInput}
+                        onkeydown={(e) => e.key === "Enter" && saveAlias(day)}
+                      />
+                      <button class="button accept" onclick={() => saveAlias(day)}> Save </button>
+                      <button class="button danger" onclick={cancelAlias}> Cancel </button>
+                    </div>
+                  {/if}
+
+                  {#if swappingDay === day}
+                    <div class="day-swap-controls" transition:fade={{ y: -20, duration: 250 }}>
+                      <label for={`swap-day-${day}`}>Swap all workouts with</label>
+                      <select id={`swap-day-${day}`} bind:value={swapTargetDay}>
+                        {#each workoutDays.filter((otherDay) => otherDay !== day) as otherDay}
+                          <option value={otherDay}>{otherDay}</option>
+                        {/each}
+                      </select>
+                      <button class="button accept" onclick={() => requestDaySwap(day)}> Swap workouts </button>
+                      <button class="button danger" onclick={cancelDaySwap}> Cancel </button>
+                    </div>
+                  {/if}
+                </div>
+
+                <button
+                  class="btn-start-day btn-start-day-list"
+                  onclick={() => startRoutineForDay(day)}
+                  disabled={dayWorkouts.length === 0}
+                  title={`Start ${day}'s routine`}
+                >
+                  <span class="material-icons">play_arrow</span>
+                  Start
+                </button>
+
+                {#if dayWorkouts.length > 0}
+                  {#each dayWorkouts as workout (workout.id)}
+                    <WorkoutCard
+                      selectedDay={viewedDay}
+                      {workout}
+                      deleteWorkout={requestDeleteWorkout}
+                      changePosition={swapWorkouts}
+                      {updateWorkoutCompletion}
+                      {updateBreakDuration}
+                      totalWorkouts={dayWorkouts.length}
+                      editWorkout={handleEditClick}
+                    />
+                  {/each}
+                {:else}
+                  <div class="empty-day">No workouts scheduled, have a nice break!</div>
+                {/if}
+              </div>
+            {/each}
+          </div>
+        {:else}
+          <div class="workouts-container" transition:fade={{ y: -20, duration: 250 }}>
+            {#each $workoutStore.workouts as workout (workout.id)}
+              <WorkoutCard
+                selectedDay={viewedDay}
+                {workout}
+                deleteWorkout={requestDeleteWorkout}
+                changePosition={swapWorkouts}
+                {updateWorkoutCompletion}
+                {updateBreakDuration}
+                totalWorkouts={$workoutStore.totalWorkouts}
+                editWorkout={handleEditClick}
+              />
+            {/each}
+          </div>
+        {/if}
       </div>
-    {:else}
-      <div class="workouts-container" transition:fade={{ y: -20, duration: 250 }}>
-        {#each $workoutStore.workouts as workout (workout.id)}
-          <WorkoutCard
-            selectedDay={viewedDay}
-            {workout}
-            deleteWorkout={requestDeleteWorkout}
-            changePosition={swapWorkouts}
-            {updateWorkoutCompletion}
-            totalWorkouts={$workoutStore.totalWorkouts}
-            editWorkout={handleEditClick}
-          />
-        {/each}
-      </div>
-    {/if}
-  </div>
-  {#if $routineStore.state !== RoutineState.STOPPED}
-    <div class="footer-container" transition:fade={{ y: -20, duration: 250 }}>
-      <button onclick={requestEndRoutine} disabled={$routineStore.completedWorkouts < $workoutStore.totalWorkouts} class="btn-stop">
-        <span class="material-symbols-outlined"> trophy </span>
-        {$dayAliasStore[viewedDay] == undefined ? " Complete Routine" : "Complete " + $dayAliasStore[viewedDay]}
-      </button> <button onclick={requestCancelRoutine} class="button danger"> <span class="material-icons">cancel</span> Cancel Routine </button>
+      {#if $routineStore.state !== RoutineState.STOPPED}
+        <div class="footer-container" transition:fade={{ y: -20, duration: 250 }}>
+          <button onclick={requestEndRoutine} class="btn-stop">
+            <span class="material-symbols-outlined"> trophy </span>
+            {#if $routineStore.completedWorkouts === $workoutStore.totalWorkouts}
+              {$dayAliasStore[viewedDay] == undefined ? " Complete Routine" : "Complete " + $dayAliasStore[viewedDay]}
+            {:else}
+              Save Partial Routine
+            {/if}
+          </button> <button onclick={requestCancelRoutine} class="button danger"> <span class="material-icons">cancel</span> Cancel Routine </button>
+        </div>
+      {/if}
     </div>
   {/if}
 </main>
@@ -521,7 +569,8 @@
 
   .day-actions {
     display: flex;
-    justify-content: flex-end;
+    justify-content: flex-start;
+    padding-left: var(--spacing-xs);
     gap: var(--spacing-xs);
     grid-column: 3;
     grid-row: 1;
@@ -552,8 +601,11 @@
     color: var(--text-secondary);
     background: var(--bg-secondary);
     font-size: 0.8rem;
+    flex: 0 0 2rem;
     width: 2rem;
     height: 2rem;
+    min-width: 0;
+    padding: 0;
   }
 
   .alias-editor {

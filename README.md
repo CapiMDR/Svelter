@@ -12,7 +12,7 @@ Svelter is an offline-first Progressive Web App (PWA) designed to help users man
 
 ### Routine management
 
-<table>
+<table align="center">
   <tr>
     <td align="center" width="33%">
       <img src="docs/empty-day.PNG" alt="Empty day" width="220">
@@ -28,13 +28,35 @@ Svelter is an offline-first Progressive Web App (PWA) designed to help users man
 
 ### Active routines
 
-<table>
+<table align="center">
   <tr>
     <td align="center" width="50%">
       <img src="docs/active-routine.PNG" alt="Active routine" width="260">
     </td>
     <td align="center" width="50%">
       <img src="docs/completed-routine.PNG" alt="Completed routine" width="260">
+    </td>
+  </tr>
+</table>
+
+### Training statistics
+
+<table align="center">
+  <tr>
+    <td align="center" width="33%">
+      <img src="docs/stats-metrics.PNG" alt="Training summary metrics" width="220">
+    </td>
+    <td align="center" width="33%">
+      <img src="docs/stats-activity.PNG" alt="Training activity chart" width="220">
+    </td>
+    <td align="center" width="33%">
+      <img src="docs/stats-sessions.PNG" alt="Session history" width="220">
+    </td>
+  </tr>
+  <tr>
+    <td colspan="3" align="center">
+      <img src="docs/stats-progression.PNG" alt="Exercise progression" width="220">
+      <img src="docs/stats-progression-graph.PNG" alt="Exercise progression chart" width="220">
     </td>
   </tr>
 </table>
@@ -50,10 +72,18 @@ Svelter is an offline-first Progressive Web App (PWA) designed to help users man
 
 ### Progress Monitoring
 
-- Track workout history
-- View progression over time
-- Monitor training volume and consistency
-- Store historical workout data locally
+- Review completed and partial sessions with filters for date, completion state, and routine
+- Track training consistency through summary metrics, activity charts, and a monthly calendar heatmap
+- View exercise progression by exact exercise name, including exercises no longer in an active routine
+- Inspect historical prescribed values, completed sets, and break durations
+- Hide or restore exercises from the progression list without deleting their history
+
+### Backup and Restore
+
+- Export routines, weekday aliases, and session statistics as a JSON backup
+- Import selected backup data by merging it with existing data or replacing it
+- Confirm import actions before changing local data
+- Keep statistics and progression history available in exported backups
 
 ### Offline-First Experience
 
@@ -174,11 +204,7 @@ Recommended browsers:
 Planned features include:
 
 - Personal records (PR) tracking
-- Exercise statistics and analytics
-- Progress charts
 - Workout reminders
-- Data import/export
-- Backup and restore functionality
 - Exercise templates
 - Bodyweight tracking
 

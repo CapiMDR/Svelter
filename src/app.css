@@ -213,6 +213,12 @@ button.danger:hover {
   box-shadow: 0 0 20px rgba(255, 0, 110, 0.3);
 }
 
+.divider {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--color-accent-primary), transparent);
+  margin: var(--spacing-xl) 0;
+}
+
 .form-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));

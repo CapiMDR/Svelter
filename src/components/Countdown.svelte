@@ -3,7 +3,7 @@
   import ProgressBar from "./ProgressBar.svelte";
   import { settingsStore } from "../lib/stores/settingsStore.js";
 
-  let { duration, timerState } = $props();
+  let { duration, timerState, completed = false, onElapsedChange = () => {} } = $props();
 
   let elapsed = $state(0);
   let interval = null;
@@ -56,9 +56,13 @@
   }
 
   $effect(() => {
+    onElapsedChange(elapsed);
+  });
+
+  $effect(() => {
     if (timerState === TimerState.STOPPED) {
       reset();
-    } else if (timerState === TimerState.PAUSED || timerState === TimerState.COMPLETED) {
+    } else if (completed || timerState === TimerState.PAUSED || timerState === TimerState.COMPLETED) {
       pause();
     }
 
@@ -79,14 +83,14 @@
         <button
           class="countdown-button"
           onclick={start}
-          disabled={timerState !== TimerState.RUNNING || isComplete}
+          disabled={timerState !== TimerState.RUNNING || isComplete || completed}
           title={isComplete ? "Reset timer to start again" : "Start timer"}
           aria-label="Start timer"
         >
           <span class="material-icons">play_arrow</span>
         </button>
       {/if}
-      <button class="countdown-button" onclick={reset} disabled={timerState !== TimerState.RUNNING} title="Reset timer" aria-label="Reset timer">
+      <button class="countdown-button" onclick={reset} disabled={timerState !== TimerState.RUNNING || completed} title="Reset timer" aria-label="Reset timer">
         <span class="material-icons">restart_alt</span>
       </button>
     </div>

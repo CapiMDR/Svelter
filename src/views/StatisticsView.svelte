@@ -36,12 +36,13 @@
 
   $effect(() => {
     activityBuckets;
-    if (activityChart)
+    const chart = activityChart;
+    if (chart)
       requestAnimationFrame(() => {
-        const filledBars = activityChart.querySelectorAll('[data-filled="true"]');
+        const filledBars = chart.querySelectorAll('[data-filled="true"]');
         const latestFilledBar = filledBars[filledBars.length - 1];
-      if (latestFilledBar) activityChart.scrollLeft = Math.max(0, latestFilledBar.offsetLeft + latestFilledBar.offsetWidth - activityChart.clientWidth);
-        else activityChart.scrollLeft = 0;
+        if (latestFilledBar) chart.scrollLeft = Math.max(0, latestFilledBar.offsetLeft + latestFilledBar.offsetWidth - chart.clientWidth);
+        else chart.scrollLeft = 0;
       });
   });
   const routineNames = $derived(

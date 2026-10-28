@@ -7,7 +7,7 @@
   import { getDisplayValue, UNITS } from "../lib/units.js";
   import { routineStore, RoutineState } from "../lib/stores/routineStore.js";
 
-  let { workout, deleteWorkout, editWorkout, changePosition, updateWorkoutCompletion, totalWorkouts } = $props();
+  let { workout, deleteWorkout, editWorkout, changePosition, updateWorkoutCompletion, updateBreakDuration, totalWorkouts } = $props();
   import { formatDifference } from "../lib/units.js";
 
   let completedSets = $state(0);
@@ -59,13 +59,13 @@
   function completeSet() {
     if (completedSets >= workout.sets) return;
     completedSets++;
-    if (completedSets >= workout.sets) updateWorkoutCompletion(1);
+    updateWorkoutCompletion(workout.id, completedSets, completedSets === workout.sets ? 1 : 0);
   }
 
   function uncompleteSet() {
     if (completedSets <= 0) return;
-    if (completedSets >= workout.sets) updateWorkoutCompletion(-1);
     completedSets--;
+    updateWorkoutCompletion(workout.id, completedSets, completedSets === workout.sets - 1 ? -1 : 0);
   }
 
   $effect(() => {
@@ -112,7 +112,12 @@
       {/if}
       {#if $routineStore.state != RoutineState.STOPPED}
         {#if hasTimeUnit}
-          <Countdown duration={workout.value} timerState={$routineStore.state} />
+          <Countdown
+            duration={workout.value}
+            timerState={$routineStore.state}
+            completed={completedSets >= workout.sets}
+            onElapsedChange={(seconds) => updateBreakDuration?.(workout.id, seconds)}
+          />
         {:else}
           <ProgressBar progress={completedSets} total={workout.sets} />
         {/if}

@@ -204,6 +204,13 @@
     gap: 0.5rem;
   }
 
+  @media (min-width: 769px) {
+    .form-grid {
+      grid-template-columns: 1fr;
+      max-width: 680px;
+    }
+  }
+
   .button-row {
     display: flex;
     gap: var(--spacing-md);

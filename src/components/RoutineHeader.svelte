@@ -1,14 +1,24 @@
 <script>
   // @ts-nocheck
+  import { onMount } from "svelte";
   import Cronometer from "./Cronometer.svelte";
   import ProgressBar from "./ProgressBar.svelte";
   import { routineStore, RoutineState } from "../lib/stores/routineStore.js";
   import { fly } from "svelte/transition";
 
   let { completed, total, onPause } = $props();
+  let routineHeader = $state();
+
+  onMount(() => {
+    const updateHeight = () => document.documentElement.style.setProperty("--routine-header-height", `${routineHeader?.offsetHeight ?? 0}px`);
+    const observer = new ResizeObserver(updateHeight);
+    observer.observe(routineHeader);
+    updateHeight();
+    return () => observer.disconnect();
+  });
 </script>
 
-<div class="running-timer-section" class:completed={completed === total} transition:fly={{ y: -20, duration: 100 }}>
+<div class="running-timer-section" bind:this={routineHeader} class:completed={completed === total} transition:fly={{ y: -20, duration: 100 }}>
   <Cronometer timerState={$routineStore.state} />
 
   <div class="progress-section">
@@ -45,7 +55,7 @@
     gap: var(--spacing-lg);
 
     position: sticky;
-    top: 100px;
+    top: calc(var(--navbar-height, 0px) + var(--spacing-sm));
     z-index: 100;
   }
   .running-timer-section.completed {

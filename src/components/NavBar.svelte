@@ -1,18 +1,28 @@
 <script>
+  import { onMount } from "svelte";
   import Clock from "./Clock.svelte";
   import SettingsMenu from "./SettingsMenu.svelte";
 
   let { activeView = "workouts", onViewChange = () => {}, onDataImported = () => {}, routineActive = false } = $props();
+  let navbar = $state();
+
+  onMount(() => {
+    const updateHeight = () => document.documentElement.style.setProperty("--navbar-height", `${navbar?.offsetHeight ?? 0}px`);
+    const observer = new ResizeObserver(updateHeight);
+    observer.observe(navbar);
+    updateHeight();
+    return () => observer.disconnect();
+  });
 </script>
 
-<nav class="navbar">
+<nav class="navbar" bind:this={navbar}>
   <div class="navbar-content">
     <div class="navbar-row brand-row">
       <div class="navbar-brand">
         <span class="icon">💪</span>
         <h1 class="title">Svelter</h1>
       </div>
-      <div class="version">v3.0.0</div>
+      <div class="version">v3.0.1</div>
     </div>
 
     <div class="navbar-row utility-row">

@@ -58,6 +58,7 @@
   const allSelectedRecords = $derived(selectedExercise ? recordsFor(selectedExercise.name, $statisticsStore.sessions) : []);
   const selectedRecords = $derived(filterRecordsByRange(allSelectedRecords, historyRange));
   const chartPoints = $derived(pointsFor(selectedRecords));
+  const chartAxisLabels = $derived(axisLabelsFor(selectedRecords, selectedExercise?.unit));
   const highestAmount = $derived(allSelectedRecords.reduce((highest, record) => Math.max(highest, record.amount ?? 0), 0));
   const lastRecord = $derived(allSelectedRecords.at(-1));
 
@@ -112,6 +113,17 @@
         return `${x},${90 - ((amount - minimum) / range) * 80}`;
       })
       .join(" ");
+  }
+
+  function axisLabelsFor(records, unit) {
+    if (!records.length) return [];
+    const amounts = records.map((record) => Number(record.amount) || 0);
+    const minimum = Math.min(...amounts);
+    const maximum = Math.max(...amounts);
+    return [maximum, (maximum + minimum) / 2, minimum].map((amount) => ({
+      value: amount,
+      label: amountLabel(Number.isInteger(amount) ? amount : amount.toFixed(1), unit),
+    }));
   }
 
   function filterRecordsByRange(records, range) {
@@ -530,22 +542,25 @@
       </div>
       <div class="chart" aria-label={`Progression chart for ${selectedExercise.name}`}>
         {#if chartPoints}
-          <svg viewBox="0 0 100 100" preserveAspectRatio="none" role="img">
-            <line x1="0" y1="10" x2="100" y2="10" /><line x1="0" y1="50" x2="100" y2="50" /><line x1="0" y1="90" x2="100" y2="90" />
-            <polyline points={chartPoints} />
-            {#each selectedRecords as record, index}
-              {@const [x, y] = chartPoints.split(" ")[index].split(",")}
-              {#if record.completedSets > 0}
-                <circle
-                  class:complete-point={record.completedSets >= record.sets}
-                  class:partial-point={record.completedSets < record.sets}
-                  cx={x}
-                  cy={y}
-                  r="1.8"><title>{formatDate(record.finishedAt)}: {amountLabel(record.amount, record.unit)}</title></circle
-                >
-              {/if}
-            {/each}
-          </svg>
+          <div class="chart-plot">
+            <div class="chart-axis" aria-hidden="true">{#each chartAxisLabels as axis}<span>{axis.label}</span>{/each}</div>
+            <svg viewBox="0 0 100 100" preserveAspectRatio="none" role="img">
+              <line x1="0" y1="10" x2="100" y2="10" /><line x1="0" y1="50" x2="100" y2="50" /><line x1="0" y1="90" x2="100" y2="90" />
+              <polyline points={chartPoints} />
+              {#each selectedRecords as record, index}
+                {@const [x, y] = chartPoints.split(" ")[index].split(",")}
+                {#if record.completedSets > 0}
+                  <circle
+                    class:complete-point={record.completedSets >= record.sets}
+                    class:partial-point={record.completedSets < record.sets}
+                    cx={x}
+                    cy={y}
+                    r="1.8"><title>{formatDate(record.finishedAt)}: {amountLabel(record.amount, record.unit)}</title></circle
+                  >
+                {/if}
+              {/each}
+            </svg>
+          </div>
           <div class="chart-labels">
             <span>{formatDate(selectedRecords[0].finishedAt)}</span><span>{formatDate(selectedRecords.at(-1).finishedAt)}</span>
           </div>
@@ -979,15 +994,20 @@
     background: var(--bg-secondary);
   }
   .chart {
+    --chart-plot-height: 340px;
     min-height: 390px;
     padding: var(--spacing-md);
+    padding-left: var(--spacing-xs);
     background: var(--bg-secondary);
     border: 1px solid var(--border-color);
     border-radius: var(--radius-md);
   }
+  .chart-plot { display: flex; gap: var(--spacing-sm); }
+  .chart-axis { display: flex; flex: 0 0 3rem; flex-direction: column; justify-content: space-between; height: var(--chart-plot-height); padding: 3% 0; color: var(--text-secondary); font-size: var(--font-size-xs); text-align: right; white-space: nowrap; }
   .chart svg {
-    width: 100%;
-    height: 340px;
+    flex: 1;
+    width: 0;
+    height: var(--chart-plot-height);
     overflow: visible;
   }
   .chart line {
@@ -1018,6 +1038,7 @@
     justify-content: space-between;
     color: var(--text-secondary);
     font-size: var(--font-size-sm);
+    margin-left: calc(3rem + var(--spacing-sm));
   }
   .chart-legend {
     display: flex;
@@ -1075,9 +1096,10 @@
     }
     .chart {
       min-height: 330px;
+      --chart-plot-height: 280px;
     }
     .chart svg {
-      height: 280px;
+      height: var(--chart-plot-height);
     }
   }
 </style>

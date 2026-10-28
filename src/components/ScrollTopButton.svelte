@@ -28,11 +28,11 @@
     color: var(--text-tertiary);
     position: sticky;
     width: 100%;
-    top: 200px;
+    top: calc(var(--navbar-height, 0px) + var(--spacing-sm) + var(--routine-header-height, 0px) + var(--spacing-sm));
     z-index: 100;
   }
 
   .btn-scroll.stick-higher {
-    top: 110px;
+    top: calc(var(--navbar-height, 0px) + var(--spacing-sm));
   }
 </style>

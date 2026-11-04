@@ -7,8 +7,8 @@
   import { fromBase, toBase, UNITS } from "../lib/units.js";
 
   $effect(() => {
-    workoutForm = workoutToEdit ? { ...defaultWorkoutForm, ...workoutToEdit } : { ...defaultWorkoutForm };
-    elementType = workoutToEdit?.type ?? "workout";
+    workoutForm = workoutToEdit ? { ...defaultWorkoutForm, ...workoutToEdit } : libraryTemplate ? { ...defaultWorkoutForm, ...libraryTemplate } : { ...defaultWorkoutForm };
+    elementType = workoutToEdit?.type ?? libraryTemplate?.type ?? "workout";
   });
 
   // Form fields for adding a workout
@@ -21,7 +21,7 @@
     notes: "",
   };
 
-  let { days, viewedDay, selectedDays = $bindable(), workoutToEdit, startRoutine, closeWorkoutForm } = $props();
+  let { days, viewedDay, selectedDays = $bindable(), workoutToEdit, libraryTemplate = null, startRoutine, closeWorkoutForm } = $props();
   let workoutForm = $state({ ...defaultWorkoutForm });
   let elementType = $state("workout");
   const displayAmount = $derived(fromBase(workoutForm.value ?? 0, workoutForm.unit));
@@ -112,6 +112,30 @@
     }
   }
 
+  function getDayInitial(day) {
+    return {
+      Monday: "Mo",
+      Tuesday: "Tu",
+      Wednesday: "We",
+      Thursday: "Th",
+      Friday: "Fr",
+      Saturday: "Sa",
+      Sunday: "Su",
+    }[day];
+  }
+
+  function getSelectedDaysSummary() {
+    const routineDays = days.filter((day) => day !== "All");
+    const selectedInOrder = routineDays.filter((day) => selectedDays.includes(day));
+
+    if (selectedInOrder.length === routineDays.length) return "Every day";
+    if (["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"].every((day) => selectedDays.includes(day)) && selectedInOrder.length === 5) {
+      return "Weekdays";
+    }
+
+    return selectedInOrder.map((day) => day.slice(0, 3)).join(", ") || "None";
+  }
+
   function handleUnitChange(newUnit) {
     workoutForm.unit = newUnit;
   }
@@ -137,7 +161,7 @@
 
 <div class="panel" transition:fly={{ y: -20, duration: 250 }}>
   <div class="form-grid">
-    <h2>{workoutToEdit ? `Editing ${elementType === "break" ? "Break" : "Workout"}` : "Adding Element"}</h2>
+    <h2>{workoutToEdit ? `Editing ${elementType === "break" ? "Break" : "Workout"}` : `Add ${elementType === "break" ? "Break" : "Workout"}`}</h2>
     {#if !workoutToEdit}
       <div class="form-group">
         <label for="element-type">Element type</label>
@@ -154,16 +178,27 @@
       </div>
     {/if}
     {#if !workoutToEdit}
-      <div class="form-group"><label for="workout-name">Select days</label></div>
-      <div class="day-selector">
+      <div class="form-group day-selection">
+        <span class="field-label">Select days</span>
+        <div class="day-selector" aria-label="Select days">
         {#each days.filter((d) => d !== "All") as day}
-          <label> <input type="checkbox" checked={selectedDays.includes(day)} onchange={() => toggleDaySelection(day)} /> {day} </label>
+          <button
+            type="button"
+            class:active={selectedDays.includes(day)}
+            onclick={() => toggleDaySelection(day)}
+            aria-pressed={selectedDays.includes(day)}
+            title={day}
+          >{getDayInitial(day)}</button>
         {/each}
+        </div>
+        <small>Selected: {getSelectedDaysSummary()}</small>
       </div>
     {/if}
     {#if elementType === "workout"}
-      <div class="form-group"><NumberInput label="# Reps" bind:value={workoutForm.reps} integerOnly={true} /></div>
-      <div class="form-group"><NumberInput label="# Sets" bind:value={workoutForm.sets} integerOnly={true} /></div>
+      <div class="number-fields">
+        <NumberInput label="Reps" bind:value={workoutForm.reps} integerOnly={true} fullWidth={true} />
+        <NumberInput label="Sets" bind:value={workoutForm.sets} integerOnly={true} fullWidth={true} />
+      </div>
     {/if}
     <div class="form-group">
       <label for="units">Unit</label>
@@ -186,7 +221,7 @@
   <div class="button-row" transition:fly={{ y: -20, duration: 250 }}>
     <button class="btn-primary" onclick={handleSubmit}>
       <span class="material-icons"> {workoutToEdit ? "edit" : "add"} </span>
-      {workoutToEdit ? "Save Changes" : `Add ${elementType === "break" ? "Break" : "Workout"}`}
+      {workoutToEdit ? "Save Changes" : "Add to routine"}
     </button> <button class="btn-danger secondary" onclick={handleClose}> <span class="material-icons">close</span> Cancel </button>
   </div>
 </div>
@@ -199,9 +234,44 @@
   }
 
   .day-selector {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.5rem;
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: var(--spacing-xs);
+    width: 100%;
+  }
+
+  .field-label {
+    color: var(--text-primary);
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+  }
+
+  .day-selector button {
+    min-width: 0;
+    padding: var(--spacing-sm);
+    color: var(--text-secondary);
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-color);
+    font-size: var(--font-size-xs);
+  }
+
+  .day-selector button.active {
+    color: var(--bg-dark);
+    background: var(--color-accent-primary);
+    border-color: var(--color-accent-primary);
+  }
+
+  .day-selection small {
+    color: var(--text-secondary);
+    font-size: var(--font-size-xs);
+  }
+
+  .number-fields {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--spacing-md);
   }
 
   @media (min-width: 769px) {
@@ -256,6 +326,10 @@
     .btn-danger {
       width: 100%;
       min-width: unset;
+    }
+
+    .number-fields {
+      gap: var(--spacing-sm);
     }
   }
 </style>

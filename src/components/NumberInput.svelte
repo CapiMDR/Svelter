@@ -1,5 +1,5 @@
 <script>
-  let { value = $bindable(), integerOnly = false, min = 1, max = 10000, step = 1, label = "", onchange = () => {} } = $props();
+  let { value = $bindable(), integerOnly = false, min = 1, max = 10000, step = 1, label = "", fullWidth = false, onchange = () => {} } = $props();
 
   function increment() {
     value = Math.min(max, Number(value) + step);
@@ -33,7 +33,7 @@
   }
 </script>
 
-<div class="form-group">
+<div class="form-group" class:full-width={fullWidth}>
   {#if label}
     <label for="value">{label}</label>
   {/if}
@@ -65,6 +65,12 @@
   .number-input input {
     width: 80px;
     text-align: center;
+  }
+
+  .full-width .number-input input {
+    flex: 1;
+    width: 100%;
+    min-width: 0;
   }
 
   .step-btn {

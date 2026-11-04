@@ -11,22 +11,26 @@
   import { dayAliasStore } from "../lib/stores/dayAliasStore.js";
   import { settingsStore } from "../lib/stores/settingsStore.js";
   import { sessionStore } from "../lib/stores/sessionStore.js";
+  import { libraryStore } from "../lib/stores/libraryStore.js";
 
   import WorkoutCard from "../components/WorkoutCard.svelte";
   import NavBar from "../components/NavBar.svelte";
-  import Stat from "../components/Stat.svelte";
   import Modal from "../components/Modal.svelte";
   import ToastContainer from "../components/ToastContainer.svelte";
   import RoutineHeader from "../components/RoutineHeader.svelte";
   import ScrollTopButton from "../components/ScrollTopButton.svelte";
   import WorkoutForm from "../components/WorkoutForm.svelte";
+  import LibraryGroupModal from "../components/LibraryGroupModal.svelte";
   import StatisticsView from "./StatisticsView.svelte";
+  import LibraryView from "./LibraryView.svelte";
 
   const today = new Intl.DateTimeFormat("en-US", { weekday: "long" }).format(new Date());
   let viewedDay = today; // Day that is being viewed by the user, defaults to current day
   let workoutToEdit = null; // null = adding, workout object = editing that workout
   let selectedDays = [today];
   let activeView = "workouts";
+  let libraryTemplate = null;
+  let libraryWorkoutToSave = null;
 
   // Data states
   const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday", "All"];
@@ -86,6 +90,22 @@
   async function deleteWorkout(workout) {
     await workoutStore.remove(workout, viewedDay);
     toastStore.success("Workout deleted");
+  }
+
+  async function saveWorkoutToLibrary(workout, bodyGroup) {
+    const { id, day, position, createdAt, lastUpdated, originalValue, originalUnit, originalReps, originalSets, ...template } = workout;
+    await libraryStore.save({ ...template, bodyGroup });
+    toastStore.success(`${workout.name} saved to the library`);
+  }
+
+  function requestSaveToLibrary(workout) {
+    libraryWorkoutToSave = workout;
+  }
+
+  async function confirmSaveToLibrary(bodyGroup) {
+    if (!libraryWorkoutToSave) return;
+    await saveWorkoutToLibrary(libraryWorkoutToSave, bodyGroup);
+    libraryWorkoutToSave = null;
   }
 
   async function swapWorkouts(movedWorkout, direction) {
@@ -200,8 +220,17 @@
   }
 
   function openWorkoutForm(dayChosen) {
+    libraryTemplate = null;
     showWorkoutForm = true;
     selectedDays = dayChosen === "All" ? days.filter((d) => d !== "All") : [dayChosen];
+    scrollToTop();
+  }
+
+  function useLibraryTemplate(template) {
+    libraryTemplate = template;
+    selectedDays = viewedDay === "All" ? days.filter((day) => day !== "All") : [viewedDay];
+    showWorkoutForm = true;
+    activeView = "workouts";
     scrollToTop();
   }
 
@@ -225,6 +254,7 @@
   function closeWorkoutForm() {
     showWorkoutForm = false;
     workoutToEdit = null;
+    libraryTemplate = null;
     scrollToTop();
   }
 
@@ -242,16 +272,19 @@
   }
 
   async function refreshImportedData() {
-    await Promise.all([workoutStore.load(viewedDay), dayAliasStore.load()]);
+    await Promise.all([workoutStore.load(viewedDay), dayAliasStore.load(), libraryStore.load()]);
   }
 </script>
 
 <Modal />
+<LibraryGroupModal workout={libraryWorkoutToSave} onSave={confirmSaveToLibrary} onClose={() => (libraryWorkoutToSave = null)} />
 <NavBar {activeView} onViewChange={changeView} onDataImported={refreshImportedData} routineActive={$routineStore.state !== RoutineState.STOPPED} />
 <ToastContainer />
 <main class="app-container">
   {#if activeView === "statistics"}
     <StatisticsView />
+  {:else if activeView === "library"}
+    <LibraryView onUseTemplate={useLibraryTemplate} />
   {:else}
     <div class="workouts-view" transition:fade={{ duration: 250 }}>
       {#if $routineStore.state !== RoutineState.STOPPED}
@@ -263,17 +296,16 @@
       {/if}
       <div class="divider"></div>
       {#if $routineStore.state === RoutineState.STOPPED}
-        <div class="panel" transition:fade={{ y: -20, duration: 250 }}>
-          <div class="section-header">
-            <h2>Routine for <span class="day-highlight">{viewedDay}</span></h2>
-          </div>
-          <div class="form-group">
-            <label for="days">View a day</label>
-            <select id="days" bind:value={viewedDay} onchange={handleViewedDayChange}>
-              {#each days as day}
-                <option value={day}>{day}</option>
-              {/each}
-            </select>
+        <div class="routine-selector" transition:fade={{ y: -20, duration: 250 }}>
+          <div class="routine-controls">
+            <div class="day-switcher">
+              <label for="days">Viewing routines for</label>
+              <select id="days" bind:value={viewedDay} onchange={handleViewedDayChange}>
+                {#each days as day}
+                  <option value={day}>{day === "All" ? "All days" : day}</option>
+                {/each}
+              </select>
+            </div>
             {#if !showWorkoutForm}
               {#if viewedDay !== "All"}
                 <button
@@ -291,7 +323,7 @@
         </div>
       {/if}
       {#if $routineStore.state === RoutineState.STOPPED && showWorkoutForm}
-        <WorkoutForm {days} {viewedDay} bind:selectedDays {workoutToEdit} {startRoutine} {closeWorkoutForm} />
+        <WorkoutForm {days} {viewedDay} bind:selectedDays {workoutToEdit} {libraryTemplate} {startRoutine} {closeWorkoutForm} />
       {/if}
       <div class="workouts-section" transition:fade={{ y: -20, duration: 250 }}>
         {#if $routineStore.state === RoutineState.STOPPED && showWorkoutForm === false}
@@ -312,7 +344,8 @@
                 <div class="day-header">
                   <div class="day-header-row">
                     <div class="day-title">
-                      <Stat label={day} value={$dayAliasStore[day]} />
+                      <span class="day-label">{day}</span>
+                      <strong class="day-routine-name">{$dayAliasStore[day]}</strong>
                     </div>
                     <div class="day-actions">
                       {#if $routineStore.state != RoutineState.RUNNING}
@@ -358,17 +391,17 @@
                       <button class="button danger" onclick={cancelDaySwap}> Cancel </button>
                     </div>
                   {/if}
-                </div>
 
-                <button
-                  class="btn-start-day btn-start-day-list"
-                  onclick={() => startRoutineForDay(day)}
-                  disabled={dayWorkouts.length === 0}
-                  title={`Start ${day}'s routine`}
-                >
-                  <span class="material-icons">play_arrow</span>
-                  Start
-                </button>
+                  <button
+                    class="btn-start-day"
+                    onclick={() => startRoutineForDay(day)}
+                    disabled={dayWorkouts.length === 0}
+                    title={`Start ${day}'s routine`}
+                  >
+                    <span class="material-icons">play_arrow</span>
+                    Start Routine
+                  </button>
+                </div>
 
                 {#if dayWorkouts.length > 0}
                   {#each dayWorkouts as workout (workout.id)}
@@ -381,6 +414,7 @@
                       {updateBreakDuration}
                       totalWorkouts={dayWorkouts.length}
                       editWorkout={handleEditClick}
+                      {requestSaveToLibrary}
                     />
                   {/each}
                 {:else}
@@ -401,6 +435,7 @@
                 {updateBreakDuration}
                 totalWorkouts={$workoutStore.totalWorkouts}
                 editWorkout={handleEditClick}
+                {requestSaveToLibrary}
               />
             {/each}
           </div>
@@ -487,6 +522,41 @@
     border-radius: var(--radius-md);
   }
 
+  .routine-controls {
+    display: grid;
+    gap: var(--spacing-md);
+  }
+
+  .routine-selector {
+    margin-bottom: var(--spacing-lg);
+  }
+
+  .day-switcher {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--spacing-md);
+    padding: var(--spacing-sm) var(--spacing-md);
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+  }
+
+  .day-switcher label {
+    margin: 0;
+    color: var(--text-primary);
+    font-size: var(--font-size-base);
+    font-weight: 700;
+    text-transform: none;
+  }
+
+  .day-switcher select {
+    width: auto;
+    min-width: 9rem;
+    padding: var(--spacing-xs) var(--spacing-sm);
+    font-size: var(--font-size-sm);
+  }
+
   .divider {
     height: 1px;
     background: linear-gradient(90deg, transparent, var(--color-accent-primary), transparent);
@@ -536,44 +606,42 @@
     margin-top: var(--spacing-sm);
   }
 
-  .section-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: var(--spacing-xl);
-    gap: var(--spacing-lg);
-  }
-
   .day-header {
     display: flex;
     flex-direction: column;
-    align-items: center;
+    gap: var(--spacing-md);
+    padding: var(--spacing-md);
+    margin-bottom: var(--spacing-md);
   }
 
   .day-header-row {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    display: flex;
+    justify-content: space-between;
     align-items: center;
-    width: 70%;
-    margin-bottom: var(--spacing-sm);
+    width: 100%;
   }
 
   .day-title {
     display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.5rem;
-    grid-column: 2;
-    grid-row: 1;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+  }
+
+  .day-label {
+    color: var(--text-secondary);
+    font-size: var(--font-size-xs);
+    text-transform: uppercase;
+  }
+
+  .day-routine-name {
+    color: var(--text-primary);
+    font-size: var(--font-size-lg);
   }
 
   .day-actions {
     display: flex;
-    justify-content: flex-start;
-    padding-left: var(--spacing-xs);
     gap: var(--spacing-xs);
-    grid-column: 3;
-    grid-row: 1;
   }
 
   .btn-start-day {
@@ -585,10 +653,6 @@
     background: linear-gradient(135deg, var(--color-success), var(--color-accent-primary));
     font-size: var(--font-size-sm);
     width: 100%;
-  }
-
-  .btn-start-day-list {
-    margin-bottom: var(--spacing-sm);
   }
 
   .btn-edit {
@@ -617,13 +681,7 @@
 
   @media (max-width: 480px) {
     .day-header {
-      flex-direction: column;
-      align-items: center;
       gap: 6px;
-    }
-
-    .day-header-row {
-      gap: var(--spacing-xs);
     }
 
     .alias-editor {
@@ -643,16 +701,6 @@
     border-radius: 6px;
     border: 1px solid var(--text-tertiary);
     min-width: 160px;
-  }
-
-  .section-header h2 {
-    margin: 0;
-    font-size: var(--font-size-xl);
-  }
-
-  .day-highlight {
-    color: var(--color-accent-primary);
-    font-weight: 700;
   }
 
   .btn-timer {
@@ -700,12 +748,6 @@
     .app-container {
       padding: var(--spacing-md);
     }
-    .section-header {
-      flex-direction: column;
-      align-items: flex-start;
-      margin-bottom: var(--spacing-lg);
-    }
-
     .btn-timer {
       width: 100%;
       min-width: unset;
@@ -723,10 +765,6 @@
   @media (max-width: 480px) {
     .app-container {
       padding: var(--spacing-sm);
-    }
-
-    .section-header h2 {
-      font-size: var(--font-size-lg);
     }
   }
 </style>

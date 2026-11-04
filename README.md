@@ -14,14 +14,17 @@ Svelter is an offline-first Progressive Web App (PWA) designed to help users man
 
 <table align="center">
   <tr>
-    <td align="center" width="33%">
+    <td align="center" width="25%">
       <img src="docs/empty-day.PNG" alt="Empty day" width="220">
     </td>
-    <td align="center" width="33%">
+    <td align="center" width="25%">
       <img src="docs/week-workouts.PNG" alt="Week workouts" width="220">
     </td>
-    <td align="center" width="33%">
+    <td align="center" width="25%">
       <img src="docs/create-element.PNG" alt="Create element" width="220">
+    </td>
+    <td align="center" width="25%">
+      <img src="docs/workout-library.PNG" alt="Workout library" width="220">
     </td>
   </tr>
 </table>
@@ -78,9 +81,16 @@ Svelter is an offline-first Progressive Web App (PWA) designed to help users man
 - Inspect historical prescribed values, completed sets, and break durations
 - Hide or restore exercises from the progression list without deleting their history
 
+### Workout Library
+
+- Browse sensible built-in exercise and break templates grouped by targeted body area
+- Add a library template directly to the routine-element form
+- Save custom routine workouts to the library with a selected body group
+- Delete unwanted custom or built-in library entries from the device
+
 ### Backup and Restore
 
-- Export routines, weekday aliases, and session statistics as a JSON backup
+- Export routines, weekday aliases, session statistics, and custom library templates as a JSON backup
 - Import selected backup data by merging it with existing data or replacing it
 - Confirm import actions before changing local data
 - Keep statistics and progression history available in exported backups

@@ -1,6 +1,7 @@
 <script>
   import { settingsStore } from "../lib/stores/settingsStore.js";
   import { backupStore } from "../lib/stores/backupStore.js";
+  import { clearAllData } from "../lib/db/backupService.js";
   import { modalStore } from "../lib/stores/modalStore.js";
   import { toastStore } from "../lib/stores/toastStore.js";
 
@@ -9,7 +10,7 @@
   let transferAction = $state(null);
   let selectedFile = $state(null);
   let fileInput = $state();
-  let selection = $state({ routines: true, statistics: true });
+  let selection = $state({ routines: true, statistics: true, library: true });
 
   function toggle() {
     isOpen = !isOpen;
@@ -20,10 +21,14 @@
     closeTransfer();
   }
 
+  function handleWindowClick(event) {
+    if (isOpen && !event.target.closest(".settings-menu")) close();
+  }
+
   function openTransfer(action) {
     transferAction = action;
     selectedFile = null;
-    selection = { routines: true, statistics: true };
+    selection = { routines: true, statistics: true, library: true };
   }
 
   function closeTransfer() {
@@ -32,7 +37,7 @@
   }
 
   function hasSelection() {
-    return selection.routines || selection.statistics;
+    return selection.routines || selection.statistics || selection.library;
   }
 
   async function exportSelected() {
@@ -61,11 +66,32 @@
       title: isReplace ? "Replace existing data?" : "Merge backup data?",
       content: isReplace
         ? "This permanently removes the selected existing data before importing the backup."
-        : "This adds backup routines and aliases, and skips sessions that already have the same ID.",
+        : "This adds backup routines, library templates, and aliases, and skips sessions that already have the same ID.",
       acceptText: isReplace ? "Replace" : "Merge",
       closeText: "Cancel",
       onAccept: () => importSelected(mode),
     });
+  }
+
+  function requestClearAllData() {
+    if (routineActive || $backupStore.busy) return;
+
+    modalStore.show({
+      title: "Clear all app data?",
+      content: "This permanently deletes all routines, aliases, session history, library workouts, and preferences from this device. Downloaded JSON backup files will not be affected.",
+      acceptText: "Clear all data",
+      closeText: "Cancel",
+      onAccept: clearStoredData,
+    });
+  }
+
+  async function clearStoredData() {
+    try {
+      await clearAllData();
+      window.location.reload();
+    } catch {
+      toastStore.error("Could not clear app data");
+    }
   }
 
   async function importSelected(mode) {
@@ -80,6 +106,8 @@
     }
   }
 </script>
+
+<svelte:window onclick={handleWindowClick} />
 
 <div class="settings-menu">
   <button class="settings-trigger" onclick={toggle} aria-expanded={isOpen} aria-controls="settings-panel" title="Open settings">
@@ -128,7 +156,7 @@
         <p>
           {routineActive
             ? "Finish or cancel the active routine before managing backups."
-            : "Export or import routines, weekday aliases, and session statistics."}
+            : "Export or import routines, library templates, weekday aliases, and session statistics."}
         </p>
         <div class="backup-buttons">
           <button onclick={() => openTransfer("export")} disabled={routineActive || $backupStore.busy}
@@ -136,6 +164,9 @@
           >
           <button onclick={() => openTransfer("import")} disabled={routineActive || $backupStore.busy}
             ><span class="material-icons">download</span> Import</button
+          >
+          <button class="clear-data" onclick={requestClearAllData} disabled={routineActive || $backupStore.busy}
+            ><span class="material-icons">delete_forever</span> Clear data</button
           >
         </div>
       </div>
@@ -157,6 +188,10 @@
         <label class="data-choice"
           ><input type="checkbox" bind:checked={selection.statistics} />
           <span><strong>Statistics</strong><small>Completed and partial routine sessions.</small></span></label
+        >
+        <label class="data-choice"
+          ><input type="checkbox" bind:checked={selection.library} />
+          <span><strong>Library</strong><small>Custom workout templates. Built-in templates are always available.</small></span></label
         >
 
         {#if transferAction === "export"}
@@ -216,6 +251,7 @@
     right: 0;
     z-index: 200;
     width: min(320px, calc(100vw - var(--spacing-lg)));
+    box-sizing: border-box;
     padding: var(--spacing-md);
     background: var(--bg-secondary);
     border: 1px solid var(--color-accent-primary);
@@ -328,6 +364,10 @@
     gap: var(--spacing-sm);
     margin-top: var(--spacing-sm);
   }
+  .backup-buttons {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
   .transfer-dialog footer {
     justify-content: center;
   }
@@ -343,6 +383,18 @@
     color: var(--text-primary);
     background: var(--bg-tertiary);
     padding: var(--spacing-sm);
+  }
+  .backup-buttons button {
+    min-width: 0;
+    padding: var(--spacing-xs);
+    font-size: var(--font-size-xs);
+    line-height: 1.15;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+  .backup-buttons .clear-data {
+    color: var(--color-danger);
+    border: 1px solid rgba(255, 0, 110, 0.45);
   }
   .transfer-backdrop {
     position: fixed;

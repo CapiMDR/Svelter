@@ -1,7 +1,13 @@
 // @ts-nocheck
 import { db } from "./db.js";
 
-export async function createBackup({ routines, statistics }) {
+export async function clearAllData() {
+  await db.transaction("rw", db.workouts, db.settings, db.sessions, db.templates, async () => {
+    await Promise.all([db.workouts.clear(), db.settings.clear(), db.sessions.clear(), db.templates.clear()]);
+  });
+}
+
+export async function createBackup({ routines, statistics, library }) {
   const backup = {
     format: "svelter-backup",
     version: 1,
@@ -14,15 +20,40 @@ export async function createBackup({ routines, statistics }) {
   }
 
   if (statistics) backup.statistics = { sessions: await db.sessions.toArray() };
+  if (library) {
+    const [templates, hiddenBuiltIns] = await Promise.all([
+      db.templates.toArray(),
+      db.settings.get("hiddenLibraryBuiltIns"),
+    ]);
+    backup.library = { templates, hiddenBuiltInTemplateNames: hiddenBuiltIns?.value ?? [] };
+  }
   return backup;
 }
 
-export async function importBackup(backup, { routines, statistics, mode }) {
-  validateBackup(backup, { routines, statistics });
+export async function importBackup(backup, { routines, statistics, library, mode }) {
+  validateBackup(backup, { routines, statistics, library });
 
-  await db.transaction("rw", db.workouts, db.settings, db.sessions, async () => {
+  await db.transaction("rw", db.workouts, db.settings, db.sessions, db.templates, async () => {
     if (routines) await importRoutines(backup.routines, mode);
     if (statistics) await importSessions(backup.statistics.sessions, mode);
+    if (library) await importLibrary(backup.library, mode);
+  });
+}
+
+async function importLibrary(library, mode) {
+  const { templates, hiddenBuiltInTemplateNames = [] } = library;
+  if (mode === "replace") await db.templates.clear();
+  const incoming = templates.map(({ id, ...template }) => template);
+  if (mode === "merge") {
+    const existing = new Set((await db.templates.toArray()).map((template) => `${template.name}:${template.bodyGroup}`));
+    await db.templates.bulkAdd(incoming.filter((template) => !existing.has(`${template.name}:${template.bodyGroup}`)));
+  } else await db.templates.bulkAdd(incoming);
+
+  const hiddenKey = "hiddenLibraryBuiltIns";
+  const existingHiddenNames = mode === "merge" ? (await db.settings.get(hiddenKey))?.value ?? [] : [];
+  await db.settings.put({
+    key: hiddenKey,
+    value: [...new Set([...existingHiddenNames, ...hiddenBuiltInTemplateNames])],
   });
 }
 
@@ -68,4 +99,5 @@ function validateBackup(backup, selection) {
   if (selection.statistics && (!backup.statistics || !Array.isArray(backup.statistics.sessions))) {
     throw new Error("This backup does not contain valid statistics data.");
   }
+  if (selection.library && (!backup.library || !Array.isArray(backup.library.templates))) throw new Error("This backup does not contain valid library data.");
 }

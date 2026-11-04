@@ -22,7 +22,7 @@
         <span class="icon">💪</span>
         <h1 class="title">Svelter</h1>
       </div>
-      <div class="version">v3.0.1</div>
+      <div class="version">v3.1.0</div>
     </div>
 
     <div class="navbar-row utility-row">
@@ -32,6 +32,7 @@
 
     <div class="view-navigation" aria-label="Main navigation">
       <button class:active={activeView === "workouts"} onclick={() => onViewChange("workouts")}>Workouts</button>
+      <button class:active={activeView === "library"} onclick={() => onViewChange("library")} disabled={routineActive}>Library</button>
       <button class:active={activeView === "statistics"} onclick={() => onViewChange("statistics")} disabled={routineActive}>Statistics</button>
     </div>
   </div>

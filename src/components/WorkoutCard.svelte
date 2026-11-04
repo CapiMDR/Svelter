@@ -4,17 +4,25 @@
   import ProgressBar from "./ProgressBar.svelte";
   import Countdown from "./Countdown.svelte";
   import { fade } from "svelte/transition";
-  import { getDisplayValue, UNITS } from "../lib/units.js";
+  import { fromBase, getDisplayValue, UNITS } from "../lib/units.js";
   import { routineStore, RoutineState } from "../lib/stores/routineStore.js";
 
-  let { workout, deleteWorkout, editWorkout, changePosition, updateWorkoutCompletion, updateBreakDuration, totalWorkouts } = $props();
-  import { formatDifference } from "../lib/units.js";
+  let {
+    workout,
+    deleteWorkout,
+    editWorkout,
+    requestSaveToLibrary = () => {},
+    changePosition,
+    updateWorkoutCompletion,
+    updateBreakDuration,
+    totalWorkouts,
+  } = $props();
 
   let completedSets = $state(0);
   let createdDateString = $state("");
   let updatedDateString = $state("");
+  let menuOpen = $state(false);
   const isBreak = $derived(workout.type === "break");
-  const breakUnitLabel = $derived(Object.entries(UNITS).find(([id]) => id === workout.unit)?.[1].label ?? workout.unit);
   const hasTimeUnit = $derived(Object.entries(UNITS).some(([id, unit]) => id === workout.unit && unit.dimension === "time"));
 
   const unitDifference = $derived.by(() => {
@@ -31,14 +39,17 @@
       return null;
     }
 
-    return formatDifference(unitDifference, workout.unit);
+    const sign = unitDifference > 0 ? "+" : "-";
+    const convertedValue = fromBase(Math.abs(unitDifference), workout.unit);
+    const value = Number.isInteger(convertedValue) ? convertedValue : convertedValue.toFixed(2);
+    return `${sign}${value} ${UNITS[workout.unit]?.compact ?? workout.unit}`;
   });
 
   const repDiff = $derived(workout.reps - workout.originalReps);
-  const repDiffString = $derived(repDiff > 0 ? "+ " + repDiff : repDiff < 0 ? "" + repDiff : undefined);
+  const repDiffString = $derived(repDiff > 0 ? "+" + repDiff : repDiff < 0 ? "" + repDiff : undefined);
 
   const setDiff = $derived(workout.sets - workout.originalSets);
-  const setDiffString = $derived(setDiff > 0 ? "+ " + setDiff : setDiff < 0 ? "" + setDiff : undefined);
+  const setDiffString = $derived(setDiff > 0 ? "+" + setDiff : setDiff < 0 ? "" + setDiff : undefined);
 
   $effect(() => {
     createdDateString = new Date(workout.createdAt).toLocaleDateString(undefined, {
@@ -68,6 +79,21 @@
     updateWorkoutCompletion(workout.id, completedSets, completedSets === workout.sets - 1 ? -1 : 0);
   }
 
+  function closeMenu() {
+    menuOpen = false;
+  }
+
+  function beginLibrarySave() {
+    closeMenu();
+    requestSaveToLibrary(workout);
+  }
+
+  function handleWindowClick(event) {
+    if (menuOpen && !event.target.closest(".workout-menu")) {
+      closeMenu();
+    }
+  }
+
   $effect(() => {
     if ($routineStore.state == RoutineState.STOPPED) {
       completedSets = 0;
@@ -75,28 +101,48 @@
   });
 </script>
 
-<div class="workout-card" class:break-card={isBreak} class:completed={completedSets === workout.sets} transition:fade={{ duration: 250 }}>
-  <div class="card-content">
-    <div class="card-header">
-      <div class="card-title">
-        <span class="position-badge">{workout.position + 1}</span>
-        {#if !isBreak}
-          <h3>{workout.name}</h3>
-        {/if}
-        {#if isBreak}
-          <span class="element-type">Break</span>
-        {/if}
-      </div>
-    </div>
+<svelte:window onclick={handleWindowClick} />
 
-    <div class="card-body">
-      {#if !isBreak || $routineStore.state === RoutineState.STOPPED}
-        <div class="stats-row" class:has-unit={workout.unit !== "none"}>
+<div
+  class="workout-card"
+  class:break-card={isBreak}
+  class:rest-preview={isBreak && $routineStore.state === RoutineState.STOPPED}
+  class:completed={completedSets === workout.sets}
+  transition:fade={{ duration: 250 }}
+>
+  <div class="card-content">
+    {#if isBreak && $routineStore.state === RoutineState.STOPPED}
+      <div class="rest-summary">
+        <span class="position-badge">{workout.position + 1}</span>
+        <div class="rest-details">
+          <div class="rest-heading">
+            <span class="rest-icon material-icons">timer</span>
+            <span class="element-type">Rest break</span>
+          </div>
+          <strong>{getDisplayValue(workout)} {UNITS[workout.unit]?.compact ?? workout.unit}</strong>
+        </div>
+      </div>
+    {:else}
+      <div class="card-header">
+        <div class="card-title">
+          <span class="position-badge">{workout.position + 1}</span>
+          {#if !isBreak}
+            <h3>{workout.name}</h3>
+          {/if}
           {#if isBreak}
-            <Stat label={breakUnitLabel} value={`${getDisplayValue(workout)}`} />
-          {:else}
+            <div class="break-title">
+              <span class="rest-icon material-icons">timer</span>
+              <span class="element-type">Rest break</span>
+            </div>
+          {/if}
+        </div>
+      </div>
+
+      <div class="card-body">
+        {#if !isBreak || $routineStore.state === RoutineState.STOPPED}
+          <div class="stats-row" class:has-unit={workout.unit !== "none"}>
             <Stat label={"Reps"} value={workout.reps} delta={$routineStore.state != RoutineState.STOPPED ? undefined : repDiffString} />
-            <Stat label={"Set"} value={workout.sets} delta={$routineStore.state != RoutineState.STOPPED ? undefined : setDiffString} />
+            <Stat label={"Sets"} value={workout.sets} delta={$routineStore.state != RoutineState.STOPPED ? undefined : setDiffString} />
             {#if workout.unit !== "none"}
               <Stat
                 label={workout.unit}
@@ -107,62 +153,72 @@
             {#if $routineStore.state != RoutineState.STOPPED}
               <WorkoutProgressStat type={"Done"} completed={completedSets} total={workout.sets} />
             {/if}
-          {/if}
-        </div>
-      {/if}
-      {#if $routineStore.state != RoutineState.STOPPED}
-        {#if hasTimeUnit}
-          <Countdown
-            duration={workout.value}
-            timerState={$routineStore.state}
-            completed={completedSets >= workout.sets}
-            onElapsedChange={(seconds) => updateBreakDuration?.(workout.id, seconds)}
-          />
-        {:else}
-          <ProgressBar progress={completedSets} total={workout.sets} />
-        {/if}
-        <div class="button-group">
-          <button class="btn-adjust" onclick={() => uncompleteSet()} disabled={completedSets === 0 || $routineStore.state == RoutineState.PAUSED}>
-            <span class="material-icons">remove</span>
-          </button>
-          <button
-            class="btn-adjust"
-            onclick={() => completeSet()}
-            disabled={completedSets >= workout.sets || $routineStore.state == RoutineState.PAUSED}
-          >
-            <span class="material-icons">add</span>
-          </button>
-        </div>
-        {#if workout.notes?.trim()}
-          <div class="workout-notes">
-            <span class="material-icons">notes</span>
-            <span>{workout.notes}</span>
           </div>
         {/if}
-      {/if}
-      <div class="card-footer">
-        <span class="created-date">
-          {"Added: " + createdDateString}
-        </span>
-        {#if updatedDateString != ""}
-          <span class="created-date">
-            {"Last edited: " + updatedDateString}
-          </span>
+        {#if $routineStore.state != RoutineState.STOPPED}
+          {#if hasTimeUnit}
+            <Countdown
+              duration={workout.value}
+              timerState={$routineStore.state}
+              completed={completedSets >= workout.sets}
+              onElapsedChange={(seconds) => updateBreakDuration?.(workout.id, seconds)}
+            />
+          {:else}
+            <ProgressBar progress={completedSets} total={workout.sets} />
+          {/if}
+          <div class="button-group">
+            <button class="btn-adjust" onclick={() => uncompleteSet()} disabled={completedSets === 0 || $routineStore.state == RoutineState.PAUSED}>
+              <span class="material-icons">remove</span>
+            </button>
+            <button
+              class="btn-adjust"
+              onclick={() => completeSet()}
+              disabled={completedSets >= workout.sets || $routineStore.state == RoutineState.PAUSED}
+            >
+              <span class="material-icons">add</span>
+            </button>
+          </div>
+          {#if workout.notes?.trim()}
+            <div class="workout-notes">
+              <span class="material-icons">notes</span>
+              <span>{workout.notes}</span>
+            </div>
+          {/if}
         {/if}
       </div>
-    </div>
+    {/if}
   </div>
 
   {#if $routineStore.state == RoutineState.STOPPED}
     <div class="card-actions">
-      <button class="btn-edit" onclick={() => editWorkout(workout)} title="Edit workout">
-        <span class="material-symbols-outlined">edit</span>
-      </button>
       <div class="right-actions">
-        <button class="btn-delete" onclick={() => deleteWorkout(workout)} title="Delete workout">
-          <span class="material-icons">delete</span>
-        </button>
-
+        <div class="workout-menu">
+          <button class="btn-menu" onclick={() => (menuOpen = !menuOpen)} aria-label="Workout options" aria-expanded={menuOpen}
+            ><span class="material-icons">more_vert</span></button
+          >
+          {#if menuOpen}
+            <div class="menu-popover">
+              <button
+                onclick={() => {
+                  closeMenu();
+                  editWorkout(workout);
+                }}><span class="material-icons">edit</span> Edit</button
+              >
+              <button onclick={beginLibrarySave}><span class="material-icons">bookmark_add</span> Save to library</button>
+              <button
+                class="delete-option"
+                onclick={() => {
+                  closeMenu();
+                  deleteWorkout(workout);
+                }}><span class="material-icons">delete</span> Delete</button
+              >
+              <div class="menu-dates">
+                <span>Added: {createdDateString}</span>
+                {#if updatedDateString != ""}<span>Last edited: {updatedDateString}</span>{/if}
+              </div>
+            </div>
+          {/if}
+        </div>
         <button class="btn-move" class:hidden={workout.position <= 0} onclick={() => changePosition(workout, -1)} title="Move up">
           <span class="material-symbols-outlined">arrow_drop_up</span>
         </button>
@@ -210,6 +266,50 @@
     border-color: rgba(0, 212, 255, 0.35);
   }
 
+  .workout-card.rest-preview {
+    min-height: 0;
+    padding: var(--spacing-md);
+    background: rgba(29, 50, 84, 0.48);
+    border-color: rgba(255, 255, 255, 0.1);
+    box-shadow: none;
+  }
+
+  .rest-summary {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--spacing-sm);
+    min-height: 54px;
+  }
+
+  .rest-details {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+    padding-top: 2px;
+  }
+
+  .rest-heading {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+  }
+
+  .break-title {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+  }
+
+  .rest-summary strong {
+    color: var(--text-primary);
+    font-size: var(--font-size-base);
+  }
+
+  .rest-icon {
+    color: var(--color-accent-primary);
+    font-size: 1rem;
+  }
+
   .element-type {
     color: var(--color-accent-primary);
     font-size: var(--font-size-xs);
@@ -222,6 +322,12 @@
     border-color: rgba(66, 255, 255, 0.4);
     box-shadow: 0 20px 40px rgba(0, 0, 0, 0.18);
     transform: translateY(-2px);
+  }
+
+  .workout-card.rest-preview:hover {
+    border-color: rgba(0, 212, 255, 0.22);
+    box-shadow: none;
+    transform: none;
   }
 
   .card-content {
@@ -240,6 +346,62 @@
     gap: var(--spacing-xs);
     flex-shrink: 0;
     align-self: stretch;
+  }
+  .workout-menu {
+    position: relative;
+  }
+
+  .btn-menu {
+    width: 34px;
+    height: 34px;
+    padding: 0;
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--text-secondary);
+    border: 1px solid var(--border-color);
+  }
+
+  .menu-popover {
+    position: absolute;
+    top: 0;
+    right: calc(100% + var(--spacing-xs));
+    z-index: 20;
+    min-width: 175px;
+    padding: var(--spacing-xs);
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-lg);
+  }
+
+  .menu-popover button {
+    width: 100%;
+    justify-content: flex-start;
+    padding: var(--spacing-xs) var(--spacing-sm);
+    background: transparent;
+    color: var(--text-primary);
+    text-transform: none;
+    letter-spacing: 0;
+  }
+
+  .menu-popover button:hover {
+    box-shadow: none;
+    background: var(--bg-hover);
+    transform: none;
+  }
+
+  .menu-popover .delete-option {
+    color: var(--color-danger);
+  }
+
+  .menu-dates {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    margin-top: var(--spacing-xs);
+    padding: var(--spacing-sm) var(--spacing-xs) var(--spacing-xs);
+    border-top: 1px solid var(--border-color);
+    color: var(--text-secondary);
+    font-size: 0.7rem;
   }
 
   .card-header {
@@ -272,20 +434,6 @@
     font-weight: 700;
     font-size: var(--font-size-xs);
     flex-shrink: 0;
-  }
-
-  .btn-delete {
-    background: rgba(255, 255, 255, 0.05);
-    color: var(--color-danger);
-    border: 2px solid rgba(255, 90, 125, 0.22);
-    padding: 7px;
-    width: 34px;
-    height: 34px;
-    border-radius: var(--radius-sm);
-  }
-
-  .btn-delete:hover {
-    background: rgba(255, 0, 110, 0.1);
   }
 
   .card-body {
@@ -365,31 +513,6 @@
     background: rgba(178, 75, 255, 0.1);
   }
 
-  .btn-edit {
-    background: rgba(255, 255, 255, 0.05);
-    color: var(--color-orange);
-    border: 2px solid rgba(255, 178, 90, 0.22);
-    padding: 7px;
-    width: 34px;
-    height: 34px;
-    border-radius: var(--radius-sm);
-  }
-
-  .btn-edit:hover {
-    background: rgba(255, 177, 75, 0.1);
-  }
-
-  .card-footer {
-    display: flex;
-    flex-direction: column;
-  }
-
-  .created-date {
-    font-size: 0.75rem;
-    color: var(--text-secondary);
-    opacity: 0.7;
-  }
-
   @media (max-width: 640px) {
     .workout-card {
       flex-direction: row;
@@ -415,8 +538,7 @@
       font-size: var(--font-size-base);
     }
 
-    .btn-delete,
-    .btn-edit,
+    .btn-menu,
     .btn-move {
       width: 40px;
       height: 40px;

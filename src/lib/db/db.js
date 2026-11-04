@@ -14,3 +14,10 @@ db.version(3).stores({
   settings: "key",
   sessions: "id, routineId, scheduledDay, startedAt, finishedAt, status",
 });
+
+db.version(4).stores({
+  workouts: "++id, day, position",
+  settings: "key",
+  sessions: "id, routineId, scheduledDay, startedAt, finishedAt, status",
+  templates: "++id, name, bodyGroup, createdAt",
+});

@@ -6,6 +6,8 @@
   import { fade } from "svelte/transition";
   import { fromBase, getDisplayValue, UNITS } from "../lib/units.js";
   import { routineStore, RoutineState } from "../lib/stores/routineStore.js";
+  import { sessionStore } from "../lib/stores/sessionStore.js";
+  import { targetLabel } from "../lib/performanceStats.js";
 
   let {
     workout,
@@ -22,8 +24,10 @@
   let createdDateString = $state("");
   let updatedDateString = $state("");
   let menuOpen = $state(false);
+  let showSetDetails = $state(false);
   const isBreak = $derived(workout.type === "break");
   const hasTimeUnit = $derived(Object.entries(UNITS).some(([id, unit]) => id === workout.unit && unit.dimension === "time"));
+  const activeExercise = $derived($sessionStore.activeSession?.exercises.find((exercise) => exercise.exerciseId === String(workout.id)));
 
   const unitDifference = $derived.by(() => {
     if (workout.originalValue == null || workout.originalUnit == null) {
@@ -77,6 +81,11 @@
     if (completedSets <= 0) return;
     completedSets--;
     updateWorkoutCompletion(workout.id, completedSets, completedSets === workout.sets - 1 ? -1 : 0);
+  }
+
+  function updateSet(setNumber, key, value) {
+    const numericValue = key === "rir" ? (value === "" ? null : value === "5+" ? "5+" : Number(value)) : Math.max(0, Number(value));
+    sessionStore.updateSetPerformance(workout.id, setNumber, { [key]: numericValue });
   }
 
   function closeMenu() {
@@ -141,7 +150,7 @@
       <div class="card-body">
         {#if !isBreak || $routineStore.state === RoutineState.STOPPED}
           <div class="stats-row" class:has-unit={workout.unit !== "none"}>
-            <Stat label={"Reps"} value={workout.reps} delta={$routineStore.state != RoutineState.STOPPED ? undefined : repDiffString} />
+            <Stat label={"Reps"} value={targetLabel(workout)} delta={$routineStore.state != RoutineState.STOPPED ? undefined : repDiffString} />
             <Stat label={"Sets"} value={workout.sets} delta={$routineStore.state != RoutineState.STOPPED ? undefined : setDiffString} />
             {#if workout.unit !== "none"}
               <Stat
@@ -178,6 +187,26 @@
               <span class="material-icons">add</span>
             </button>
           </div>
+          {#if completedSets > 0 && !isBreak}
+            <button class="set-details-toggle" onclick={() => (showSetDetails = !showSetDetails)} aria-expanded={showSetDetails}>
+              <span class="material-icons">tune</span>{showSetDetails ? "Hide set details" : "Edit completed sets"}
+            </button>
+          {/if}
+          {#if showSetDetails && activeExercise}
+            <div class="set-details" aria-label={`Actual performance for ${workout.name}`}>
+              <div class="set-details-heading"><strong>Actual performance</strong><small>Defaults come from your plan. RIR = reps you could still perform before failure.</small></div>
+              {#each activeExercise.performedSets.filter((set) => set.completed) as set (set.setNumber)}
+                <div class="set-row">
+                  <strong>Set {set.setNumber}</strong>
+                  <label>Reps <input type="number" min="0" inputmode="numeric" value={set.actualReps} oninput={(event) => updateSet(set.setNumber, "actualReps", event.currentTarget.value)} /></label>
+                  {#if workout.unit !== "none"}
+                    <label>{UNITS[workout.unit]?.compact ?? workout.unit}<input type="number" min="0" step="any" inputmode="decimal" value={set.actualAmount} oninput={(event) => updateSet(set.setNumber, "actualAmount", event.currentTarget.value)} /></label>
+                  {/if}
+                  <label>RIR <select value={set.rir ?? ""} onchange={(event) => updateSet(set.setNumber, "rir", event.currentTarget.value)}><option value="">—</option>{#each [0, 1, 2, 3, 4, 5] as rir}<option value={rir}>{rir}</option>{/each}<option value="5+">5+</option></select></label>
+                </div>
+              {/each}
+            </div>
+          {/if}
           {#if workout.notes?.trim()}
             <div class="workout-notes">
               <span class="material-icons">notes</span>
@@ -487,6 +516,12 @@
     justify-content: center;
     transition: all var(--transition-base);
   }
+  .set-details-toggle { width: 100%; color: var(--text-secondary); background: transparent; border: 1px solid var(--border-color); padding: var(--spacing-xs); font-size: var(--font-size-sm); }
+  .set-details { display: grid; gap: var(--spacing-xs); padding: var(--spacing-sm); background: rgba(0, 212, 255, .05); border: 1px solid rgba(0, 212, 255, .22); border-radius: var(--radius-md); }
+  .set-details-heading { display: flex; flex-direction: column; gap: 2px; } .set-details small { color: var(--text-secondary); font-size: var(--font-size-xs); }
+  .set-row { display: grid; grid-template-columns: auto repeat(3, minmax(0, 1fr)); align-items: end; gap: var(--spacing-xs); padding-top: var(--spacing-xs); border-top: 1px solid rgba(255,255,255,.07); font-size: var(--font-size-xs); }
+  .set-row label { display: flex; flex-direction: column; gap: 2px; color: var(--text-secondary); } .set-row input, .set-row select { min-width: 0; width: 100%; padding: 5px; font-size: var(--font-size-sm); }
+  @media (max-width: 460px) { .set-row { grid-template-columns: repeat(3, minmax(0, 1fr)); } .set-row > strong { grid-column: 1 / -1; } }
 
   .btn-adjust:hover:not(:disabled) {
     border-color: var(--color-accent-primary);

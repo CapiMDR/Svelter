@@ -12,6 +12,8 @@
   import { settingsStore } from "../lib/stores/settingsStore.js";
   import { sessionStore } from "../lib/stores/sessionStore.js";
   import { libraryStore } from "../lib/stores/libraryStore.js";
+  import { statisticsStore } from "../lib/stores/statisticsStore.js";
+  import { bodyProgressStore } from "../lib/stores/bodyProgressStore.js";
 
   import WorkoutCard from "../components/WorkoutCard.svelte";
   import NavBar from "../components/NavBar.svelte";
@@ -23,6 +25,7 @@
   import LibraryGroupModal from "../components/LibraryGroupModal.svelte";
   import StatisticsView from "./StatisticsView.svelte";
   import LibraryView from "./LibraryView.svelte";
+  import BodyProgressView from "./BodyProgressView.svelte";
 
   const today = new Intl.DateTimeFormat("en-US", { weekday: "long" }).format(new Date());
   let viewedDay = today; // Day that is being viewed by the user, defaults to current day
@@ -272,7 +275,13 @@
   }
 
   async function refreshImportedData() {
-    await Promise.all([workoutStore.load(viewedDay), dayAliasStore.load(), libraryStore.load()]);
+    await Promise.all([
+      workoutStore.load(viewedDay),
+      dayAliasStore.load(),
+      libraryStore.load(),
+      statisticsStore.load(),
+      bodyProgressStore.load(),
+    ]);
   }
 </script>
 
@@ -282,9 +291,17 @@
 <ToastContainer />
 <main class="app-container">
   {#if activeView === "statistics"}
-    <StatisticsView />
+    <div class="tab-view" transition:fade={{ duration: 250 }}>
+      <StatisticsView />
+    </div>
+  {:else if activeView === "body"}
+    <div class="tab-view" transition:fade={{ duration: 250 }}>
+      <BodyProgressView />
+    </div>
   {:else if activeView === "library"}
-    <LibraryView onUseTemplate={useLibraryTemplate} />
+    <div class="tab-view" transition:fade={{ duration: 250 }}>
+      <LibraryView onUseTemplate={useLibraryTemplate} />
+    </div>
   {:else}
     <div class="workouts-view" transition:fade={{ duration: 250 }}>
       {#if $routineStore.state !== RoutineState.STOPPED}

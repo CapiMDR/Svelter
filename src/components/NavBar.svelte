@@ -22,7 +22,7 @@
         <span class="icon">💪</span>
         <h1 class="title">Svelter</h1>
       </div>
-      <div class="version">v3.1.0</div>
+      <div class="version">v3.2.0</div>
     </div>
 
     <div class="navbar-row utility-row">
@@ -34,6 +34,7 @@
       <button class:active={activeView === "workouts"} onclick={() => onViewChange("workouts")}>Workouts</button>
       <button class:active={activeView === "library"} onclick={() => onViewChange("library")} disabled={routineActive}>Library</button>
       <button class:active={activeView === "statistics"} onclick={() => onViewChange("statistics")} disabled={routineActive}>Statistics</button>
+      <button class:active={activeView === "body"} onclick={() => onViewChange("body")} disabled={routineActive}>Body</button>
     </div>
   </div>
 </nav>
@@ -41,6 +42,7 @@
 <style>
   .navbar {
     width: 100%;
+    overflow: visible;
     background: linear-gradient(135deg, var(--bg-primary) 0%, var(--color-primary) 100%);
     border-bottom: 2px solid var(--color-accent-primary);
     padding: var(--spacing-md) 0;
@@ -110,11 +112,12 @@
   }
   .view-navigation {
     width: 100%;
-    display: flex;
-    justify-content: center;
-    gap: var(--spacing-xs);
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 2px;
   }
   .view-navigation button {
+    min-width: 0;
     background: transparent;
     color: var(--text-secondary);
     padding: var(--spacing-xs) var(--spacing-sm);
@@ -131,6 +134,11 @@
     }
     .icon {
       font-size: var(--font-size-lg);
+    }
+    .view-navigation button {
+      padding: var(--spacing-xs) 2px;
+      font-size: 0.7rem;
+      letter-spacing: 0;
     }
   }
 </style>

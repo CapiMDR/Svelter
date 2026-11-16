@@ -6,15 +6,11 @@
   import { toastStore } from "../lib/stores/toastStore.js";
   import { fromBase, toBase, UNITS } from "../lib/units.js";
 
-  $effect(() => {
-    workoutForm = workoutToEdit ? { ...defaultWorkoutForm, ...workoutToEdit } : libraryTemplate ? { ...defaultWorkoutForm, ...libraryTemplate } : { ...defaultWorkoutForm };
-    elementType = workoutToEdit?.type ?? libraryTemplate?.type ?? "workout";
-  });
-
   // Form fields for adding a workout
   const defaultWorkoutForm = {
     name: "",
     reps: 15,
+    repTarget: { mode: "fixed", fixed: 15 },
     sets: 3,
     unit: "none",
     value: 1,
@@ -22,8 +18,20 @@
   };
 
   let { days, viewedDay, selectedDays = $bindable(), workoutToEdit, libraryTemplate = null, startRoutine, closeWorkoutForm } = $props();
-  let workoutForm = $state({ ...defaultWorkoutForm });
-  let elementType = $state("workout");
+
+  function initialForm() {
+    const source = workoutToEdit ?? libraryTemplate;
+    const form = { ...defaultWorkoutForm, ...(source ?? {}) };
+    form.repTarget ??= { mode: "fixed", fixed: form.reps };
+    return form;
+  }
+
+  function initialElementType() {
+    return (workoutToEdit ?? libraryTemplate)?.type ?? "workout";
+  }
+
+  let workoutForm = $state(initialForm());
+  let elementType = $state(initialElementType());
   const displayAmount = $derived(fromBase(workoutForm.value ?? 0, workoutForm.unit));
 
   async function handleSubmit() {
@@ -44,6 +52,7 @@
       {
         name: elementType === "break" ? "Break" : workoutForm.name,
         reps: workoutForm.reps,
+        repTarget: normalizedRepTarget(),
         sets: workoutForm.sets,
         unit: workoutForm.unit,
         value: workoutForm.value,
@@ -58,7 +67,8 @@
 
   function isValidElement() {
     if (elementType === "workout" && workoutForm.name == "") return false;
-    if (elementType === "workout" && (workoutForm.sets == null || workoutForm.reps == null)) return false;
+    if (elementType === "workout" && (workoutForm.sets == null || normalizedRepTarget().fixed == null)) return false;
+    if (elementType === "workout" && normalizedRepTarget().mode === "range" && (normalizedRepTarget().min < 1 || normalizedRepTarget().max < normalizedRepTarget().min)) return false;
     if (elementType === "break" && (!workoutForm.value || workoutForm.value <= 0)) return false;
     if (selectedDays.length == 0) return false;
     return true;
@@ -69,6 +79,7 @@
     const newData = {
       name: elementType === "break" ? "Break" : workoutForm.name,
       reps: workoutForm.reps,
+      repTarget: normalizedRepTarget(),
       sets: workoutForm.sets,
       unit: workoutForm.unit,
       value: workoutForm.value,
@@ -157,6 +168,20 @@
   function updateDisplayAmount(amount) {
     workoutForm.value = toBase(amount, workoutForm.unit);
   }
+
+  function normalizedRepTarget() {
+    const target = workoutForm.repTarget ?? { mode: "fixed", fixed: workoutForm.reps ?? 1 };
+    if (target.mode === "range") return { mode: "range", min: Number(target.min ?? 1), max: Number(target.max ?? target.min ?? 1) };
+    return { mode: "fixed", fixed: Number(target.fixed ?? workoutForm.reps ?? 1) };
+  }
+
+  function setRepMode(mode) {
+    const current = normalizedRepTarget();
+    workoutForm.repTarget = mode === "range"
+      ? { mode, min: current.fixed ?? current.min ?? 8, max: current.fixed ?? current.max ?? 12 }
+      : { mode, fixed: current.max ?? current.fixed ?? 10 };
+    workoutForm.reps = workoutForm.repTarget.mode === "range" ? workoutForm.repTarget.max : workoutForm.repTarget.fixed;
+  }
 </script>
 
 <div class="panel" transition:fly={{ y: -20, duration: 250 }}>
@@ -195,8 +220,20 @@
       </div>
     {/if}
     {#if elementType === "workout"}
+      <div class="form-group">
+        <span class="field-label">Rep target</span>
+        <div class="target-mode" role="group" aria-label="Repetition target type">
+          <button type="button" class:active={normalizedRepTarget().mode === "fixed"} onclick={() => setRepMode("fixed")}>Fixed</button>
+          <button type="button" class:active={normalizedRepTarget().mode === "range"} onclick={() => setRepMode("range")}>Range</button>
+        </div>
+      </div>
       <div class="number-fields">
-        <NumberInput label="Reps" bind:value={workoutForm.reps} integerOnly={true} fullWidth={true} />
+        {#if normalizedRepTarget().mode === "range"}
+          <NumberInput label="Min reps" bind:value={workoutForm.repTarget.min} integerOnly={true} fullWidth={true} />
+          <NumberInput label="Max reps" bind:value={workoutForm.repTarget.max} integerOnly={true} fullWidth={true} />
+        {:else}
+          <NumberInput label="Reps" bind:value={workoutForm.repTarget.fixed} integerOnly={true} fullWidth={true} />
+        {/if}
         <NumberInput label="Sets" bind:value={workoutForm.sets} integerOnly={true} fullWidth={true} />
       </div>
     {/if}
@@ -273,6 +310,9 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: var(--spacing-md);
   }
+  .target-mode { display: flex; gap: var(--spacing-xs); }
+  .target-mode button { flex: 1; color: var(--text-secondary); background: var(--bg-tertiary); }
+  .target-mode button.active { color: var(--bg-dark); background: var(--color-accent-primary); }
 
   @media (min-width: 769px) {
     .form-grid {

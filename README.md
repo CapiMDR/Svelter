@@ -70,7 +70,9 @@ Svelter is an offline-first Progressive Web App (PWA) designed to help users man
 
 - Create and manage workout routines
 - Organize exercises within routines
-- Record sets, repetitions, and weights
+- Set either fixed repetition targets or rep ranges for each exercise
+- Record per-set repetitions, load or duration, and RIR (reps in reserve) while completing a routine
+- Review prescribed targets alongside actual set performance
 - Edit workout data at any time
 
 ### Progress Monitoring
@@ -78,8 +80,18 @@ Svelter is an offline-first Progressive Web App (PWA) designed to help users man
 - Review completed and partial sessions with filters for date, completion state, and routine
 - Track training consistency through summary metrics, activity charts, and a monthly calendar heatmap
 - View exercise progression by exact exercise name, including exercises no longer in an active routine
-- Inspect historical prescribed values, completed sets, and break durations
+- Track weight, repetitions, total volume load, and time-based performance across exercise history
+- Inspect historical prescribed values, completed sets, RIR, and actual break durations
 - Hide or restore exercises from the progression list without deleting their history
+
+### Body Progress Tracking
+
+- Record dated body measurements for weight, waist, chest, upper arms, shoulders, hips, and thighs
+- Add optional notes to each check-in
+- Attach multiple local progress photos to an entry. Expand an entry to browse and enlarge its photos
+- See which entries include photos, including the number of saved images
+- Review measurement trends by metric over the last 30 days, 90 days, year, or all recorded history
+- Keep body entries and photos private on the device
 
 ### Workout Library
 
@@ -90,10 +102,11 @@ Svelter is an offline-first Progressive Web App (PWA) designed to help users man
 
 ### Backup and Restore
 
-- Export routines, weekday aliases, session statistics, and custom library templates as a JSON backup
+- Export routines, weekday aliases, session statistics, library templates, body measurements, and body-progress photos in one JSON backup
 - Import selected backup data by merging it with existing data or replacing it
 - Confirm import actions before changing local data
-- Keep statistics and progression history available in exported backups
+- Select Body Progress independently when exporting or importing
+- Keep session statistics, progression history, body measurements, and photo check-ins available in exported backups
 
 ### Offline-First Experience
 

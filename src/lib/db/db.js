@@ -21,3 +21,14 @@ db.version(4).stores({
   sessions: "id, routineId, scheduledDay, startedAt, finishedAt, status",
   templates: "++id, name, bodyGroup, createdAt",
 });
+
+// Body entries keep measurement metadata separate from photo blobs so routine and
+// statistics queries stay fast even when users keep several progress photos.
+db.version(5).stores({
+  workouts: "++id, day, position",
+  settings: "key",
+  sessions: "id, routineId, scheduledDay, startedAt, finishedAt, status",
+  templates: "++id, name, bodyGroup, createdAt",
+  bodyProgress: "id, recordedAt",
+  progressPhotos: "id, bodyProgressId",
+});

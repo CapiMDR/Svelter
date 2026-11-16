@@ -1,3 +1,7 @@
+<script module>
+  let lastActiveStatisticsTab = "summary";
+</script>
+
 <script>
   import { onMount } from "svelte";
   import { fade } from "svelte/transition";
@@ -6,8 +10,9 @@
   import { getHiddenExerciseNames, saveHiddenExerciseNames } from "../lib/db/sessionService.js";
   import { getAllWorkouts } from "../lib/db/workoutService.js";
   import { statisticsStore } from "../lib/stores/statisticsStore.js";
+  import { performanceFor } from "../lib/performanceStats.js";
 
-  let activeTab = $state("summary");
+  let activeTab = $state(lastActiveStatisticsTab);
   let exerciseFilter = $state("visible");
   let search = $state("");
   let historyRange = $state("1m");
@@ -23,6 +28,7 @@
   let customStart = $state("");
   let customEnd = $state("");
   let selectedExercise = $state(null);
+  let progressionMetric = $state("amount");
   let hiddenExerciseNames = $state(new Set());
   let currentWorkouts = $state([]);
 
@@ -59,7 +65,7 @@
   const selectedRecords = $derived(filterRecordsByRange(allSelectedRecords, historyRange));
   const chartPoints = $derived(pointsFor(selectedRecords));
   const chartAxisLabels = $derived(axisLabelsFor(selectedRecords, selectedExercise?.unit));
-  const highestAmount = $derived(allSelectedRecords.reduce((highest, record) => Math.max(highest, record.amount ?? 0), 0));
+  const highestAmount = $derived(allSelectedRecords.reduce((highest, record) => Math.max(highest, metricValue(record)), 0));
   const lastRecord = $derived(allSelectedRecords.at(-1));
 
   onMount(async () => {
@@ -97,14 +103,16 @@
   function recordsFor(name, sessions) {
     return sessions
       .flatMap((session) =>
-        (session.exercises ?? []).filter((exercise) => exercise.name === name).map((exercise) => ({ ...exercise, finishedAt: session.finishedAt })),
+        (session.exercises ?? [])
+          .filter((exercise) => exercise.name === name)
+          .map((exercise) => ({ ...exercise, performance: performanceFor(exercise), finishedAt: session.finishedAt })),
       )
       .sort((first, second) => new Date(first.finishedAt) - new Date(second.finishedAt));
   }
 
   function pointsFor(records) {
     if (!records.length) return "";
-    const amounts = records.map((record) => Number(record.amount) || 0);
+    const amounts = records.map((record) => metricValue(record));
     const minimum = Math.min(...amounts);
     const range = Math.max(...amounts) - minimum || 1;
     return amounts
@@ -117,13 +125,35 @@
 
   function axisLabelsFor(records, unit) {
     if (!records.length) return [];
-    const amounts = records.map((record) => Number(record.amount) || 0);
+    const amounts = records.map((record) => metricValue(record));
     const minimum = Math.min(...amounts);
     const maximum = Math.max(...amounts);
     return [maximum, (maximum + minimum) / 2, minimum].map((amount) => ({
       value: amount,
-      label: amountLabel(Number.isInteger(amount) ? amount : amount.toFixed(1), unit),
+      label: metricLabel(Number.isInteger(amount) ? amount : amount.toFixed(1), unit),
     }));
+  }
+
+  function metricValue(record) {
+    if (progressionMetric === "reps") return record.performance.actualReps;
+    if (progressionMetric === "sets") return record.performance.completedSets;
+    if (progressionMetric === "volume") return record.performance.volumeLoad;
+    if (progressionMetric === "duration") return record.performance.actualDuration;
+    const amounts = record.performance.sets.map((set) => Number(set.actualAmount) || 0);
+    return amounts.length ? amounts.reduce((sum, amount) => sum + amount, 0) / amounts.length : Number(record.amount) || 0;
+  }
+
+  function metricLabel(value, unit) {
+    if (progressionMetric === "volume") return `${value} kg`;
+    if (progressionMetric === "reps") return `${value} reps`;
+    if (progressionMetric === "sets") return `${value} sets`;
+    if (progressionMetric === "duration") return `${value} sec`;
+    return amountLabel(value, unit);
+  }
+
+  function selectExercise(exercise) {
+    selectedExercise = exercise;
+    progressionMetric = ["kg", "lb", "g"].includes(exercise.unit) ? "amount" : ["seconds", "minutes"].includes(exercise.unit) ? "duration" : "reps";
   }
 
   function filterRecordsByRange(records, range) {
@@ -357,6 +387,10 @@
   function formatDate(date) {
     return new Date(date).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
   }
+  function selectTab(tab) {
+    activeTab = tab;
+    lastActiveStatisticsTab = tab;
+  }
   function amountLabel(amount, unit) {
     return unit && unit !== "none" ? `${amount} ${unit}` : String(amount);
   }
@@ -364,17 +398,17 @@
 
 <section class="statistics-view">
   <div class="stats-tabs" role="tablist" aria-label="Statistics views">
-    <button class:active={activeTab === "summary"} role="tab" aria-selected={activeTab === "summary"} onclick={() => (activeTab = "summary")}
+    <button class:active={activeTab === "summary"} role="tab" aria-selected={activeTab === "summary"} onclick={() => selectTab("summary")}
       >Summary</button
     >
-    <button class:active={activeTab === "sessions"} role="tab" aria-selected={activeTab === "sessions"} onclick={() => (activeTab = "sessions")}
+    <button class:active={activeTab === "sessions"} role="tab" aria-selected={activeTab === "sessions"} onclick={() => selectTab("sessions")}
       >Sessions</button
     >
     <button
       class:active={activeTab === "progression"}
       role="tab"
       aria-selected={activeTab === "progression"}
-      onclick={() => (activeTab = "progression")}>Exercise progression</button
+      onclick={() => selectTab("progression")}>Exercise progression</button
     >
   </div>
 
@@ -531,9 +565,22 @@
         </button>
       </header>
       <div class="progress-summary">
-        <div><span>Highest logged amount</span><strong>{amountLabel(highestAmount, selectedExercise.unit)}</strong></div>
-        <div><span>Last completed sets</span><strong>{lastRecord?.completedSets ?? 0} / {lastRecord?.sets ?? 0}</strong></div>
+        <div>
+          <span>Highest {progressionMetric === "amount" ? "logged amount" : progressionMetric}</span><strong
+            >{metricLabel(highestAmount, selectedExercise.unit)}</strong
+          >
+        </div>
+        <div><span>Last actual reps</span><strong>{lastRecord?.performance.actualReps ?? 0}</strong></div>
       </div>
+      <label class="metric-picker"
+        >Metric <select bind:value={progressionMetric} onchange={() => {}}>
+          {#if ["kg", "lb", "g"].includes(selectedExercise.unit)}<option value="amount">Weight</option><option value="volume">Volume load</option
+            >{/if}
+          <option value="reps">Actual reps</option>
+          <option value="sets">Completed sets</option>
+          {#if ["seconds", "minutes"].includes(selectedExercise.unit)}<option value="duration">Duration</option>{/if}
+        </select></label
+      >
       <div class="history-ranges" role="tablist" aria-label="Progression date range">
         <button class:active={historyRange === "1m"} onclick={() => (historyRange = "1m")}>1M</button>
         <button class:active={historyRange === "3m"} onclick={() => (historyRange = "3m")}>3M</button>
@@ -543,7 +590,9 @@
       <div class="chart" aria-label={`Progression chart for ${selectedExercise.name}`}>
         {#if chartPoints}
           <div class="chart-plot">
-            <div class="chart-axis" aria-hidden="true">{#each chartAxisLabels as axis}<span>{axis.label}</span>{/each}</div>
+            <div class="chart-axis" aria-hidden="true">
+              {#each chartAxisLabels as axis}<span>{axis.label}</span>{/each}
+            </div>
             <svg viewBox="0 0 100 100" preserveAspectRatio="none" role="img">
               <line x1="0" y1="10" x2="100" y2="10" /><line x1="0" y1="50" x2="100" y2="50" /><line x1="0" y1="90" x2="100" y2="90" />
               <polyline points={chartPoints} />
@@ -555,7 +604,11 @@
                     class:partial-point={record.completedSets < record.sets}
                     cx={x}
                     cy={y}
-                    r="1.8"><title>{formatDate(record.finishedAt)}: {amountLabel(record.amount, record.unit)}</title></circle
+                    r="1.8"
+                    ><title
+                      >{formatDate(record.finishedAt)}: {metricLabel(metricValue(record), record.unit)} · {record.performance.completedSets} sets · {record
+                        .performance.actualReps} reps</title
+                    ></circle
                   >
                 {/if}
               {/each}
@@ -589,7 +642,7 @@
         <div class="exercise-list">
           {#each filteredExercises as exercise (exercise.name)}
             <article class="exercise-item">
-              <button class="exercise-select" onclick={() => (selectedExercise = exercise)}
+              <button class="exercise-select" onclick={() => selectExercise(exercise)}
                 ><span><strong>{exercise.name}</strong><small>{exercise.sessions} {exercise.sessions === 1 ? "session" : "sessions"}</small></span
                 ><span class="material-icons">chevron_right</span></button
               >
@@ -977,6 +1030,17 @@
   .progress-summary strong {
     font-size: var(--font-size-lg);
   }
+  .metric-picker {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    color: var(--text-secondary);
+    font-size: var(--font-size-sm);
+  }
+  .metric-picker select {
+    width: auto;
+    padding: var(--spacing-xs) var(--spacing-sm);
+  }
   .history-ranges {
     display: flex;
     justify-content: space-between;
@@ -1002,8 +1066,22 @@
     border: 1px solid var(--border-color);
     border-radius: var(--radius-md);
   }
-  .chart-plot { display: flex; gap: var(--spacing-sm); }
-  .chart-axis { display: flex; flex: 0 0 3rem; flex-direction: column; justify-content: space-between; height: var(--chart-plot-height); padding: 3% 0; color: var(--text-secondary); font-size: var(--font-size-xs); text-align: right; white-space: nowrap; }
+  .chart-plot {
+    display: flex;
+    gap: var(--spacing-sm);
+  }
+  .chart-axis {
+    display: flex;
+    flex: 0 0 3rem;
+    flex-direction: column;
+    justify-content: space-between;
+    height: var(--chart-plot-height);
+    padding: 3% 0;
+    color: var(--text-secondary);
+    font-size: var(--font-size-xs);
+    text-align: right;
+    white-space: nowrap;
+  }
   .chart svg {
     flex: 1;
     width: 0;

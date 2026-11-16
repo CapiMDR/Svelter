@@ -10,7 +10,7 @@
   let transferAction = $state(null);
   let selectedFile = $state(null);
   let fileInput = $state();
-  let selection = $state({ routines: true, statistics: true, library: true });
+  let selection = $state({ routines: true, statistics: true, library: true, bodyProgress: true });
 
   function toggle() {
     isOpen = !isOpen;
@@ -28,7 +28,7 @@
   function openTransfer(action) {
     transferAction = action;
     selectedFile = null;
-    selection = { routines: true, statistics: true, library: true };
+    selection = { routines: true, statistics: true, library: true, bodyProgress: true };
   }
 
   function closeTransfer() {
@@ -37,7 +37,7 @@
   }
 
   function hasSelection() {
-    return selection.routines || selection.statistics || selection.library;
+    return selection.routines || selection.statistics || selection.library || selection.bodyProgress;
   }
 
   async function exportSelected() {
@@ -78,7 +78,7 @@
 
     modalStore.show({
       title: "Clear all app data?",
-      content: "This permanently deletes all routines, aliases, session history, library workouts, and preferences from this device. Downloaded JSON backup files will not be affected.",
+      content: "This permanently deletes all routines, aliases, session history, body progress entries and photos, library workouts, and preferences from this device. Downloaded JSON backup files will not be affected.",
       acceptText: "Clear all data",
       closeText: "Cancel",
       onAccept: clearStoredData,
@@ -156,7 +156,7 @@
         <p>
           {routineActive
             ? "Finish or cancel the active routine before managing backups."
-            : "Export or import routines, library templates, weekday aliases, and session statistics."}
+            : "Export or import routines, library templates, weekday aliases, session statistics, and body progress."}
         </p>
         <div class="backup-buttons">
           <button onclick={() => openTransfer("export")} disabled={routineActive || $backupStore.busy}
@@ -184,6 +184,10 @@
         <label class="data-choice"
           ><input type="checkbox" bind:checked={selection.routines} />
           <span><strong>Routines</strong><small>Workouts and weekday aliases. App preferences are excluded.</small></span></label
+        >
+        <label class="data-choice"
+          ><input type="checkbox" bind:checked={selection.bodyProgress} />
+          <span><strong>Body progress</strong><small>Measurements, notes, and locally stored photo check-ins.</small></span></label
         >
         <label class="data-choice"
           ><input type="checkbox" bind:checked={selection.statistics} />

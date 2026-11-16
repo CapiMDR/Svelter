@@ -2,6 +2,7 @@
 import { writable } from "svelte/store";
 import { saveSession } from "../db/sessionService.js";
 import { fromBase } from "../units.js";
+import { defaultReps } from "../performanceStats.js";
 
 function createSessionStore() {
   const { subscribe, set, update } = writable({ activeSession: null });
@@ -20,6 +21,7 @@ function createSessionStore() {
         type: workout.type,
         sets: workout.sets ?? 1,
         reps: workout.reps ?? 1,
+        repTarget: workout.repTarget ?? { mode: "fixed", fixed: workout.reps ?? 1 },
         unit: workout.unit ?? "none",
         // This remains the prescribed amount for exercises. Breaks replace it
         // with their actual duration when the session is saved.
@@ -39,9 +41,22 @@ function createSessionStore() {
       return {
         activeSession: {
           ...activeSession,
-          exercises: activeSession.exercises.map((exercise) =>
-            exercise.exerciseId === String(exerciseId) ? { ...exercise, completedSets } : exercise,
-          ),
+          exercises: activeSession.exercises.map((exercise) => {
+            if (exercise.exerciseId !== String(exerciseId)) return exercise;
+            const performedSets = Array.from({ length: exercise.sets }, (_, index) => {
+              const existing = exercise.performedSets?.[index];
+              return {
+                setNumber: index + 1,
+                actualReps: existing?.actualReps ?? defaultReps(exercise),
+                actualAmount: existing?.actualAmount ?? (["seconds", "minutes"].includes(exercise.unit) && exercise.actualDuration != null ? exercise.actualDuration : exercise.amount),
+                rir: existing?.rir ?? null,
+                repsSource: existing?.repsSource ?? "planned",
+                amountSource: existing?.amountSource ?? "planned",
+                completed: index < completedSets,
+              };
+            });
+            return { ...exercise, completedSets, performedSets };
+          }),
         },
       };
     });
@@ -58,6 +73,24 @@ function createSessionStore() {
               ? { ...exercise, actualDuration: seconds, amount: seconds }
               : exercise,
           ),
+        },
+      };
+    });
+  }
+
+  function updateSetPerformance(exerciseId, setNumber, changes) {
+    update(({ activeSession }) => {
+      if (!activeSession) return { activeSession };
+      return {
+        activeSession: {
+          ...activeSession,
+          exercises: activeSession.exercises.map((exercise) => {
+            if (exercise.exerciseId !== String(exerciseId)) return exercise;
+            const performedSets = (exercise.performedSets ?? []).map((set) =>
+              set.setNumber === setNumber ? { ...set, ...changes, repsSource: changes.actualReps != null ? "edited" : set.repsSource, amountSource: changes.actualAmount != null ? "edited" : set.amountSource } : set,
+            );
+            return { ...exercise, performedSets };
+          }),
         },
       };
     });
@@ -84,7 +117,7 @@ function createSessionStore() {
     set({ activeSession: null });
   }
 
-  return { subscribe, start, updateCompletedSets, updateBreakDuration, finish, cancel };
+  return { subscribe, start, updateCompletedSets, updateBreakDuration, updateSetPerformance, finish, cancel };
 }
 
 function createSessionId() {

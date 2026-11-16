@@ -1,16 +1,17 @@
 // @ts-nocheck
 import { db } from "./db.js";
+import { exportBodyProgress, importBodyProgress, prepareBodyProgressImport } from "./bodyProgressService.js";
 
 export async function clearAllData() {
-  await db.transaction("rw", db.workouts, db.settings, db.sessions, db.templates, async () => {
-    await Promise.all([db.workouts.clear(), db.settings.clear(), db.sessions.clear(), db.templates.clear()]);
+  await db.transaction("rw", db.workouts, db.settings, db.sessions, db.templates, db.bodyProgress, db.progressPhotos, async () => {
+    await Promise.all([db.workouts.clear(), db.settings.clear(), db.sessions.clear(), db.templates.clear(), db.bodyProgress.clear(), db.progressPhotos.clear()]);
   });
 }
 
-export async function createBackup({ routines, statistics, library }) {
+export async function createBackup({ routines, statistics, library, bodyProgress }) {
   const backup = {
     format: "svelter-backup",
-    version: 1,
+    version: 2,
     exportedAt: new Date().toISOString(),
   };
 
@@ -27,16 +28,20 @@ export async function createBackup({ routines, statistics, library }) {
     ]);
     backup.library = { templates, hiddenBuiltInTemplateNames: hiddenBuiltIns?.value ?? [] };
   }
+  if (bodyProgress) backup.bodyProgress = await exportBodyProgress();
   return backup;
 }
 
-export async function importBackup(backup, { routines, statistics, library, mode }) {
-  validateBackup(backup, { routines, statistics, library });
+export async function importBackup(backup, { routines, statistics, library, bodyProgress, mode }) {
+  validateBackup(backup, { routines, statistics, library, bodyProgress });
+  // Blob conversion uses browser promises, so it must finish before Dexie's transaction starts.
+  const preparedBodyProgress = bodyProgress ? await prepareBodyProgressImport(backup.bodyProgress) : null;
 
-  await db.transaction("rw", db.workouts, db.settings, db.sessions, db.templates, async () => {
+  await db.transaction("rw", db.workouts, db.settings, db.sessions, db.templates, db.bodyProgress, db.progressPhotos, async () => {
     if (routines) await importRoutines(backup.routines, mode);
     if (statistics) await importSessions(backup.statistics.sessions, mode);
     if (library) await importLibrary(backup.library, mode);
+    if (bodyProgress) await importBodyProgress(preparedBodyProgress, mode);
   });
 }
 
@@ -90,7 +95,7 @@ async function importSessions(sessions, mode) {
 }
 
 function validateBackup(backup, selection) {
-  if (!backup || backup.format !== "svelter-backup" || backup.version !== 1) {
+  if (!backup || backup.format !== "svelter-backup" || ![1, 2].includes(backup.version)) {
     throw new Error("This is not a supported Svelter backup file.");
   }
   if (selection.routines && (!backup.routines || !Array.isArray(backup.routines.workouts) || typeof backup.routines.dayAliases !== "object")) {
@@ -100,4 +105,5 @@ function validateBackup(backup, selection) {
     throw new Error("This backup does not contain valid statistics data.");
   }
   if (selection.library && (!backup.library || !Array.isArray(backup.library.templates))) throw new Error("This backup does not contain valid library data.");
+  if (selection.bodyProgress && (backup.version < 2 || !backup.bodyProgress || !Array.isArray(backup.bodyProgress.entries))) throw new Error("This backup does not contain body progress data.");
 }

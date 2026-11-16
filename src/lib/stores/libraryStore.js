@@ -14,8 +14,14 @@ function createLibraryStore() {
     const [templates, hiddenBuiltInTemplateNames] = await Promise.all([getLibraryTemplates(), getHiddenBuiltInTemplateNames()]);
     set({ templates, hiddenBuiltInTemplateNames, loading: false });
   }
-  async function save(template) { await saveLibraryTemplate(template); await load(); }
-  async function remove(id) { await deleteLibraryTemplate(id); await load(); }
+  async function save(template) {
+    await saveLibraryTemplate(template);
+    await load();
+  }
+  async function remove(id) {
+    await deleteLibraryTemplate(id);
+    await load();
+  }
   async function hideBuiltIn(name) {
     let names;
     update((state) => {

@@ -4,7 +4,14 @@ import { exportBodyProgress, importBodyProgress, prepareBodyProgressImport } fro
 
 export async function clearAllData() {
   await db.transaction("rw", db.workouts, db.settings, db.sessions, db.templates, db.bodyProgress, db.progressPhotos, async () => {
-    await Promise.all([db.workouts.clear(), db.settings.clear(), db.sessions.clear(), db.templates.clear(), db.bodyProgress.clear(), db.progressPhotos.clear()]);
+    await Promise.all([
+      db.workouts.clear(),
+      db.settings.clear(),
+      db.sessions.clear(),
+      db.templates.clear(),
+      db.bodyProgress.clear(),
+      db.progressPhotos.clear(),
+    ]);
   });
 }
 
@@ -22,10 +29,7 @@ export async function createBackup({ routines, statistics, library, bodyProgress
 
   if (statistics) backup.statistics = { sessions: await db.sessions.toArray() };
   if (library) {
-    const [templates, hiddenBuiltIns] = await Promise.all([
-      db.templates.toArray(),
-      db.settings.get("hiddenLibraryBuiltIns"),
-    ]);
+    const [templates, hiddenBuiltIns] = await Promise.all([db.templates.toArray(), db.settings.get("hiddenLibraryBuiltIns")]);
     backup.library = { templates, hiddenBuiltInTemplateNames: hiddenBuiltIns?.value ?? [] };
   }
   if (bodyProgress) backup.bodyProgress = await exportBodyProgress();
@@ -45,6 +49,19 @@ export async function importBackup(backup, { routines, statistics, library, body
   });
 }
 
+export function getAvailableBackupSections(backup) {
+  if (!backup || backup.format !== "svelter-backup" || ![1, 2].includes(backup.version)) {
+    throw new Error("This is not a supported Svelter backup file.");
+  }
+
+  return {
+    routines: Boolean(backup.routines && Array.isArray(backup.routines.workouts) && typeof backup.routines.dayAliases === "object"),
+    statistics: Boolean(backup.statistics && Array.isArray(backup.statistics.sessions)),
+    library: Boolean(backup.library && Array.isArray(backup.library.templates)),
+    bodyProgress: Boolean(backup.version >= 2 && backup.bodyProgress && Array.isArray(backup.bodyProgress.entries)),
+  };
+}
+
 async function importLibrary(library, mode) {
   const { templates, hiddenBuiltInTemplateNames = [] } = library;
   if (mode === "replace") await db.templates.clear();
@@ -55,7 +72,7 @@ async function importLibrary(library, mode) {
   } else await db.templates.bulkAdd(incoming);
 
   const hiddenKey = "hiddenLibraryBuiltIns";
-  const existingHiddenNames = mode === "merge" ? (await db.settings.get(hiddenKey))?.value ?? [] : [];
+  const existingHiddenNames = mode === "merge" ? ((await db.settings.get(hiddenKey))?.value ?? []) : [];
   await db.settings.put({
     key: hiddenKey,
     value: [...new Set([...existingHiddenNames, ...hiddenBuiltInTemplateNames])],
@@ -78,7 +95,7 @@ async function importRoutines(routines, mode) {
   }
   await db.workouts.bulkAdd(importedWorkouts);
 
-  const existingAliases = mode === "merge" ? (await db.settings.get("dayAliases"))?.value ?? {} : {};
+  const existingAliases = mode === "merge" ? ((await db.settings.get("dayAliases"))?.value ?? {}) : {};
   await db.settings.put({ key: "dayAliases", value: { ...existingAliases, ...routines.dayAliases } });
 }
 
@@ -104,6 +121,8 @@ function validateBackup(backup, selection) {
   if (selection.statistics && (!backup.statistics || !Array.isArray(backup.statistics.sessions))) {
     throw new Error("This backup does not contain valid statistics data.");
   }
-  if (selection.library && (!backup.library || !Array.isArray(backup.library.templates))) throw new Error("This backup does not contain valid library data.");
-  if (selection.bodyProgress && (backup.version < 2 || !backup.bodyProgress || !Array.isArray(backup.bodyProgress.entries))) throw new Error("This backup does not contain body progress data.");
+  if (selection.library && (!backup.library || !Array.isArray(backup.library.templates)))
+    throw new Error("This backup does not contain valid library data.");
+  if (selection.bodyProgress && (backup.version < 2 || !backup.bodyProgress || !Array.isArray(backup.bodyProgress.entries)))
+    throw new Error("This backup does not contain body progress data.");
 }

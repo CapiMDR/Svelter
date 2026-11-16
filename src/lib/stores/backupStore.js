@@ -1,6 +1,6 @@
 // @ts-nocheck
 import { writable } from "svelte/store";
-import { createBackup, importBackup } from "../db/backupService.js";
+import { createBackup, getAvailableBackupSections, importBackup } from "../db/backupService.js";
 
 function createBackupStore() {
   const { subscribe, set } = writable({ busy: false });
@@ -31,7 +31,11 @@ function createBackupStore() {
     }
   }
 
-  return { subscribe, exportData, importData };
+  async function inspectFile(file) {
+    return getAvailableBackupSections(JSON.parse(await file.text()));
+  }
+
+  return { subscribe, exportData, importData, inspectFile };
 }
 
 export const backupStore = createBackupStore();

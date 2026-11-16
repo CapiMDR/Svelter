@@ -11,6 +11,13 @@
   let selectedFile = $state(null);
   let fileInput = $state();
   let selection = $state({ routines: true, statistics: true, library: true, bodyProgress: true });
+  let availableSections = $state(null);
+  const transferSections = [
+    { key: "routines", title: "Routines", description: "Workouts and weekday aliases. App preferences are excluded." },
+    { key: "bodyProgress", title: "Body progress", description: "Measurements, notes, and locally stored photo check-ins." },
+    { key: "statistics", title: "Statistics", description: "Completed and partial routine sessions." },
+    { key: "library", title: "Library", description: "Custom workout templates. Built-in templates are always available." },
+  ];
 
   function toggle() {
     isOpen = !isOpen;
@@ -29,11 +36,13 @@
     transferAction = action;
     selectedFile = null;
     selection = { routines: true, statistics: true, library: true, bodyProgress: true };
+    availableSections = null;
   }
 
   function closeTransfer() {
     transferAction = null;
     selectedFile = null;
+    availableSections = null;
   }
 
   function hasSelection() {
@@ -54,8 +63,27 @@
     fileInput?.click();
   }
 
-  function handleFile(event) {
-    selectedFile = event.currentTarget.files?.[0] ?? null;
+  async function handleFile(event) {
+    const file = event.currentTarget.files?.[0] ?? null;
+    selectedFile = null;
+    availableSections = null;
+    selection = { routines: false, statistics: false, library: false, bodyProgress: false };
+    if (!file) return;
+
+    try {
+      const sections = await backupStore.inspectFile(file);
+      if (!Object.values(sections).some(Boolean)) throw new Error("This backup does not contain any importable data.");
+      selectedFile = file;
+      availableSections = sections;
+      selection = { ...sections };
+    } catch (error) {
+      event.currentTarget.value = "";
+      toastStore.error(error.message ?? "Could not read the backup file");
+    }
+  }
+
+  function setSelection(section, checked) {
+    selection = { ...selection, [section]: checked };
   }
 
   function requestImport(mode) {
@@ -78,7 +106,8 @@
 
     modalStore.show({
       title: "Clear all app data?",
-      content: "This permanently deletes all routines, aliases, session history, body progress entries and photos, library workouts, and preferences from this device. Downloaded JSON backup files will not be affected.",
+      content:
+        "This permanently deletes all routines, aliases, session history, body progress entries and photos, library workouts, and preferences from this device. Downloaded JSON backup files will not be affected.",
       acceptText: "Clear all data",
       closeText: "Cancel",
       onAccept: clearStoredData,
@@ -181,22 +210,23 @@
           <button class="close-button" onclick={closeTransfer} aria-label="Close"><span class="material-icons">close</span></button>
         </header>
         <p>Select what the JSON backup should include or use.</p>
-        <label class="data-choice"
-          ><input type="checkbox" bind:checked={selection.routines} />
-          <span><strong>Routines</strong><small>Workouts and weekday aliases. App preferences are excluded.</small></span></label
-        >
-        <label class="data-choice"
-          ><input type="checkbox" bind:checked={selection.bodyProgress} />
-          <span><strong>Body progress</strong><small>Measurements, notes, and locally stored photo check-ins.</small></span></label
-        >
-        <label class="data-choice"
-          ><input type="checkbox" bind:checked={selection.statistics} />
-          <span><strong>Statistics</strong><small>Completed and partial routine sessions.</small></span></label
-        >
-        <label class="data-choice"
-          ><input type="checkbox" bind:checked={selection.library} />
-          <span><strong>Library</strong><small>Custom workout templates. Built-in templates are always available.</small></span></label
-        >
+        {#if transferAction === "export"}
+          {#each transferSections as section}
+            <label class="data-choice"
+              ><input type="checkbox" checked={selection[section.key]} onchange={(event) => setSelection(section.key, event.currentTarget.checked)} />
+              <span><strong>{section.title}</strong><small>{section.description}</small></span></label
+            >
+          {/each}
+        {:else if availableSections}
+          {#each transferSections.filter((section) => availableSections[section.key]) as section}
+            <label class="data-choice"
+              ><input type="checkbox" checked={selection[section.key]} onchange={(event) => setSelection(section.key, event.currentTarget.checked)} />
+              <span><strong>{section.title}</strong><small>{section.description}</small></span></label
+            >
+          {/each}
+        {:else}
+          <p class="backup-file-hint">Choose a JSON backup to see the data sections available to import.</p>
+        {/if}
 
         {#if transferAction === "export"}
           <footer>
@@ -469,6 +499,11 @@
     padding: var(--spacing-sm);
     border-left: 3px solid var(--color-gold);
     background: rgba(255, 178, 90, 0.08);
+  }
+  .backup-file-hint {
+    margin: 0;
+    color: var(--text-secondary);
+    font-size: var(--font-size-sm);
   }
   .import-warning p {
     margin: var(--spacing-xs) 0;

@@ -22,7 +22,7 @@
         <span class="icon">💪</span>
         <h1 class="title">Svelter</h1>
       </div>
-      <div class="version">v3.2.0</div>
+      <div class="version">v3.2.1</div>
     </div>
 
     <div class="navbar-row utility-row">

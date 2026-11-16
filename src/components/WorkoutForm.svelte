@@ -36,7 +36,7 @@
 
   async function handleSubmit() {
     if (!isValidElement()) {
-      toastStore.info("Name and day required");
+      toastStore.info("Enter a name, select a day, and provide valid sets and rep targets");
       return;
     }
     if (workoutToEdit) {
@@ -66,9 +66,11 @@
   }
 
   function isValidElement() {
-    if (elementType === "workout" && workoutForm.name == "") return false;
-    if (elementType === "workout" && (workoutForm.sets == null || normalizedRepTarget().fixed == null)) return false;
-    if (elementType === "workout" && normalizedRepTarget().mode === "range" && (normalizedRepTarget().min < 1 || normalizedRepTarget().max < normalizedRepTarget().min)) return false;
+    const repTarget = normalizedRepTarget();
+    if (elementType === "workout" && !workoutForm.name.trim()) return false;
+    if (elementType === "workout" && (!Number.isFinite(Number(workoutForm.sets)) || Number(workoutForm.sets) < 1)) return false;
+    if (elementType === "workout" && repTarget.mode === "fixed" && (!Number.isFinite(repTarget.fixed) || repTarget.fixed < 1)) return false;
+    if (elementType === "workout" && repTarget.mode === "range" && (!Number.isFinite(repTarget.min) || !Number.isFinite(repTarget.max) || repTarget.min < 1 || repTarget.max < repTarget.min)) return false;
     if (elementType === "break" && (!workoutForm.value || workoutForm.value <= 0)) return false;
     if (selectedDays.length == 0) return false;
     return true;

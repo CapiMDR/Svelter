@@ -404,11 +404,8 @@
     <button class:active={activeTab === "sessions"} role="tab" aria-selected={activeTab === "sessions"} onclick={() => selectTab("sessions")}
       >Sessions</button
     >
-    <button
-      class:active={activeTab === "progression"}
-      role="tab"
-      aria-selected={activeTab === "progression"}
-      onclick={() => selectTab("progression")}>Exercise progression</button
+    <button class:active={activeTab === "progression"} role="tab" aria-selected={activeTab === "progression"} onclick={() => selectTab("progression")}
+      >Exercise progression</button
     >
   </div>
 
